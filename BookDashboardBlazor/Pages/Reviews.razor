@@ -1,0 +1,177 @@
+@page "/reviews"
+@using BookDashboardBlazor.Models
+@inject HttpClient Http
+@attribute [Authorize]
+
+<h3>Reviews</h3>
+
+<button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add Review</button>
+
+<GenericTable Items="reviews" OnEdit="OpenEditModal" OnDelete="DeleteReview">
+    <TableHeader>
+        <th>ID</th>
+        <th>Book</th>
+        <th>Rating</th>
+        <th>Text</th>
+        <th>Created At</th>
+    </TableHeader>
+    <RowTemplate Context="review">
+        <td>@review.ReviewID</td>
+        <td>@GetBookTitle(review.BookId)</td>
+        <td>@review.Rating</td>
+        <td>@review.ReviewText</td>
+        <td>@review.CreatedAt.ToShortDateString()</td>
+    </RowTemplate>
+</GenericTable>
+
+<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal">
+    <EditForm Model="@currentReview" OnValidSubmit="SaveReview">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label>Book</label>
+            <InputSelect @bind-Value="currentReview.BookId" class="form-select">
+                <option value="0">Select Book</option>
+                @foreach (var book in books)
+                {
+                    <option value="@book.BookId">@book.Title</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="mb-3">
+            <label>Rating (1-5)</label>
+            <InputNumber @bind-Value="currentReview.Rating" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label>Review Text</label>
+            <InputTextArea @bind-Value="currentReview.ReviewText" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+</Modal>
+
+@code {
+    private List<Review> reviews = new();
+    private List<Book> books = new();
+    private Review currentReview = new();
+    private bool showModal = false;
+    private string modalTitle = "Add Review";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var reviewResponse = await Http.GetAsync("api/Review");
+            var bookResponse = await Http.GetAsync("api/Books");
+
+            if (reviewResponse.IsSuccessStatusCode)
+            {
+                reviews = await reviewResponse.Content.ReadFromJsonAsync<List<Review>>() ?? new List<Review>();
+            }
+            else
+            {
+                reviews = new List<Review>();
+                Console.WriteLine($"Error loading reviews: {reviewResponse.StatusCode}");
+            }
+
+            if (bookResponse.IsSuccessStatusCode)
+            {
+                books = await bookResponse.Content.ReadFromJsonAsync<List<Book>>() ?? new List<Book>();
+            }
+            else
+            {
+                books = new List<Book>();
+                Console.WriteLine($"Error loading books: {bookResponse.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            reviews = new List<Review>();
+            books = new List<Book>();
+            Console.WriteLine($"Exception loading data: {ex.Message}");
+        }
+    }
+
+    private string GetBookTitle(int id) => books.FirstOrDefault(b => b.BookId == id)?.Title ?? "Unknown";
+
+    private void OpenCreateModal()
+    {
+        currentReview = new Review { CreatedAt = DateTime.Now };
+        modalTitle = "Add Review";
+        showModal = true;
+    }
+
+    private void OpenEditModal(Review review)
+    {
+        currentReview = new Review
+        {
+            ReviewID = review.ReviewID,
+            BookId = review.BookId,
+            Rating = review.Rating,
+            ReviewText = review.ReviewText,
+            CreatedAt = review.CreatedAt,
+            AppUserID = review.AppUserID // Preserve user ID
+        };
+        modalTitle = "Edit Review";
+        showModal = true;
+    }
+
+    private void CloseModal() => showModal = false;
+
+    private async Task SaveReview()
+    {
+        try
+        {
+            if (currentReview.ReviewID == 0)
+            {
+                var response = await Http.PostAsJsonAsync("api/Review", currentReview);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"Error creating review: {response.StatusCode}");
+                    return;
+                }
+            }
+            else
+            {
+                var response = await Http.PutAsJsonAsync($"api/Review/{currentReview.ReviewID}", currentReview);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"Error updating review: {response.StatusCode}");
+                    return;
+                }
+            }
+            showModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception saving review: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteReview(Review review)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"api/Review/{review.ReviewID}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadData();
+            }
+            else
+            {
+                Console.WriteLine($"Error deleting review: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception deleting review: {ex.Message}");
+        }
+    }
+}

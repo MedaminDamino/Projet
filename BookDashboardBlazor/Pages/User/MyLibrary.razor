@@ -1,0 +1,93 @@
+@page "/user/library"
+@layout UserLayout
+@using BookDashboardBlazor.Models
+@inject HttpClient Http
+@attribute [Authorize]
+
+<h3>My Library</h3>
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <button class="nav-link @(activeTab == "Reading" ? "active" : "")" @onclick='() => activeTab = "Reading"'>Currently Reading</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link @(activeTab == "Want to Read" ? "active" : "")" @onclick='() => activeTab = "Want to Read"'>Want to Read</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link @(activeTab == "Completed" ? "active" : "")" @onclick='() => activeTab = "Completed"'>Completed</button>
+    </li>
+</ul>
+
+<div class="row row-cols-1 row-cols-md-3 g-4">
+    @if (GetBooksForTab().Any())
+    {
+        @foreach (var book in GetBooksForTab())
+        {
+            <div class="col">
+                <BookCard Book="book" AuthorName="@GetAuthorName(book.AuthorId)" GenreName="@GetGenreName(book.GenreId)" />
+            </div>
+        }
+    }
+    else
+    {
+        <div class="col-12">
+            <div class="alert alert-light text-center">
+                <p>No books in this list yet.</p>
+                <a href="user/browse" class="btn btn-primary">Browse Books</a>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string activeTab = "Reading";
+    private List<Book> allBooks = new();
+    private List<Author> authors = new();
+    private List<Genre> genres = new();
+
+    // Mock data for library
+    private List<int> readingIds = new() { 1, 2 };
+    private List<int> wantToReadIds = new() { 3, 4, 5 };
+    private List<int> completedIds = new() { 6 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var t1 = Http.GetFromJsonAsync<List<Book>>("api/Books");
+            var t2 = Http.GetFromJsonAsync<List<Author>>("api/Author");
+            var t3 = Http.GetFromJsonAsync<List<Genre>>("api/Genre");
+
+            await Task.WhenAll(t1, t2, t3);
+
+            allBooks = await t1 ?? new List<Book>();
+            authors = await t2 ?? new List<Author>();
+            genres = await t3 ?? new List<Genre>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading library: {ex.Message}");
+        }
+    }
+
+    private IEnumerable<Book> GetBooksForTab()
+    {
+        var ids = activeTab switch
+        {
+            "Reading" => readingIds,
+            "Want to Read" => wantToReadIds,
+            "Completed" => completedIds,
+            _ => new List<int>()
+        };
+
+        return allBooks.Where(b => ids.Contains(b.BookId));
+    }
+
+    private string GetAuthorName(int? id) => id.HasValue
+        ? authors.FirstOrDefault(a => a.AuthorId == id.Value)?.Name ?? "Unknown"
+        : "Unknown";
+
+    private string GetGenreName(int? id) => id.HasValue
+        ? genres.FirstOrDefault(g => g.GenreId == id.Value)?.GenreName ?? "Unknown"
+        : "Unknown";
+}

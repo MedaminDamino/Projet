@@ -1,0 +1,122 @@
+﻿@page "/"
+
+<PageTitle>Book Dashboard - Home</PageTitle>
+
+<div class="home-container">
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                <span class="gradient-text">Welcome to BookDashboard</span>
+            </h1>
+            <p class="hero-subtitle">Your personal library management system</p>
+            <p class="hero-description">Track your reading journey, discover new books, and achieve your reading goals</p>
+        </div>
+        <div class="hero-decoration">
+            <div class="floating-book">📚</div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <div class="stat-card stat-card-primary">
+            <div class="stat-icon">📖</div>
+            <div class="stat-content">
+                <div class="stat-label">Total Books</div>
+                <div class="stat-value">@totalBooks</div>
+                <div class="stat-trend positive">+12% this month</div>
+            </div>
+        </div>
+
+        <div class="stat-card stat-card-success">
+            <div class="stat-icon">✍️</div>
+            <div class="stat-content">
+                <div class="stat-label">Authors</div>
+                <div class="stat-value">@totalAuthors</div>
+                <div class="stat-trend positive">+5 new</div>
+            </div>
+        </div>
+
+        <div class="stat-card stat-card-warning">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-content">
+                <div class="stat-label">Reviews</div>
+                <div class="stat-value">@totalReviews</div>
+                <div class="stat-trend positive">+23 this week</div>
+            </div>
+        </div>
+
+        <div class="stat-card stat-card-info">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-content">
+                <div class="stat-label">Reading Goals</div>
+                <div class="stat-value">@activeGoals</div>
+                <div class="stat-trend neutral">In progress</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="section-header">
+        <h2>Quick Actions</h2>
+        <p>Jump right into what you need</p>
+    </div>
+
+    <div class="quick-actions-grid">
+        <a href="/books" class="action-card">
+            <div class="action-icon">📚</div>
+            <h3>Browse Books</h3>
+            <p>Explore your entire collection</p>
+            <div class="action-arrow">→</div>
+        </a>
+
+        <a href="/authors" class="action-card">
+            <div class="action-icon">✍️</div>
+            <h3>Manage Authors</h3>
+            <p>View and organize authors</p>
+            <div class="action-arrow">→</div>
+        </a>
+
+        <a href="/reviews" class="action-card">
+            <div class="action-icon">⭐</div>
+            <h3>Read Reviews</h3>
+            <p>See what others are saying</p>
+            <div class="action-arrow">→</div>
+        </a>
+
+        <a href="/goals" class="action-card">
+            <div class="action-icon">🎯</div>
+            <h3>Track Goals</h3>
+            <p>Monitor your reading progress</p>
+            <div class="action-arrow">→</div>
+        </a>
+
+        <a href="/genres" class="action-card">
+            <div class="action-icon">🏷️</div>
+            <h3>Explore Genres</h3>
+            <p>Discover by category</p>
+            <div class="action-arrow">→</div>
+        </a>
+
+        <a href="/comments" class="action-card">
+            <div class="action-icon">💬</div>
+            <h3>View Comments</h3>
+            <p>Join the conversation</p>
+            <div class="action-arrow">→</div>
+        </a>
+    </div>
+</div>
+
+@code {
+    private int totalBooks = 156;
+    private int totalAuthors = 42;
+    private int totalReviews = 89;
+    private int activeGoals = 3;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // In a real application, you would fetch these stats from your API
+        // For now, we're using placeholder values that work by default
+        await Task.CompletedTask;
+    }
+}

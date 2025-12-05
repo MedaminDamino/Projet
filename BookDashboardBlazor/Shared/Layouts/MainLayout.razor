@@ -1,0 +1,57 @@
+﻿@inherits LayoutComponentBase
+@using BookDashboardBlazor.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<div class="app-container">
+    <div class="app-sidebar">
+        <NavMenu />
+    </div>
+
+    <div class="app-main">
+        <div class="app-topbar">
+            <div class="topbar-content">
+                <h1 class="topbar-title">Book Dashboard</h1>
+                <div class="topbar-nav">
+                    <AuthorizeView>
+                        <Authorized>
+                            <a href="discover" class="nav-link">Discover Books</a>
+                        </Authorized>
+                    </AuthorizeView>
+                </div>
+                <div class="topbar-actions">
+                    <AuthorizeView>
+                        <Authorized>
+                            <span class="user-greeting">Hello, @context.User.Identity?.Name</span>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="Logout">Logout</button>
+                        </Authorized>
+                        <NotAuthorized>
+                            <a href="login" class="btn btn-sm btn-primary">Login</a>
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </div>
+            </div>
+        </div>
+
+        <div class="app-content">
+            <ErrorBoundary>
+                <ChildContent>
+                    @Body
+                </ChildContent>
+                <ErrorContent>
+                    <div class="error-state">
+                        <p>An error occurred. Please refresh the page.</p>
+                    </div>
+                </ErrorContent>
+            </ErrorBoundary>
+        </div>
+    </div>
+</div>
+
+@code {
+    private async Task Logout()
+    {
+        await AuthService.Logout();
+        NavigationManager.NavigateTo("/login");
+    }
+}

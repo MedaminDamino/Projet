@@ -1,0 +1,286 @@
+html, body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* ============================================
+   LAYOUT FIX - MODERN CLEAN DESIGN
+   This file fixes the sidebar gradient and spacing issues
+   ============================================ */
+
+/* ============================================
+   NEW MODERN LAYOUT STRUCTURE
+   ============================================ */
+
+/* Main App Container */
+.app-container {
+    display: flex;
+    min-height: 100vh;
+    background-color: var(--color-bg-secondary, #f9fafb);
+    overflow-x: hidden;
+}
+
+/* ============================================
+   SIDEBAR - CLEAN FLAT DESIGN (NO GRADIENT)
+   ============================================ */
+
+.app-sidebar {
+    width: 240px;
+    background-color: var(--color-bg-primary, #ffffff);
+    border-right: 1px solid var(--color-border-medium, #e5e7eb);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    flex-shrink: 0;
+    z-index: 10;
+    overflow-y: auto;
+}
+
+/* Sidebar Header */
+.sidebar-header {
+    padding: 1.5rem 1.25rem;
+    border-bottom: 1px solid var(--color-border-light, #f3f4f6);
+}
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: var(--color-text-primary, #111827);
+    font-weight: 700;
+    font-size: 1.125rem;
+    transition: opacity 150ms ease;
+}
+
+.sidebar-brand:hover {
+    opacity: 0.8;
+    color: var(--color-text-primary, #111827);
+}
+
+.brand-icon {
+    font-size: 1.5rem;
+}
+
+.brand-text {
+    color: var(--color-text-primary, #111827);
+}
+
+/* Sidebar Navigation */
+.sidebar-nav {
+    flex: 1;
+    padding: 1rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+/* Nav Items - Override old styles */
+.sidebar-nav .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.5rem;
+    color: var(--color-text-secondary, #6b7280);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9375rem;
+    transition: all 150ms ease;
+    cursor: pointer;
+    margin-bottom: 0;
+}
+
+.sidebar-nav .nav-item:hover {
+    background-color: var(--color-bg-hover, #f5f5f7);
+    color: var(--color-text-primary, #111827);
+}
+
+.sidebar-nav .nav-item.active {
+    background-color: var(--color-primary-light, #eef2ff);
+    color: var(--color-primary, #6366f1);
+    font-weight: 600;
+}
+
+.nav-icon {
+    font-size: 1.25rem;
+    width: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.nav-text {
+    flex: 1;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--color-border-light, #f3f4f6);
+}
+
+.sidebar-version {
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary, #9ca3af);
+    text-align: center;
+}
+
+/* ============================================
+   MAIN CONTENT AREA - FIXED ALIGNMENT
+   ============================================ */
+
+.app-main {
+    flex: 1;
+    margin-left: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: 100%;
+}
+
+/* Top Bar */
+.app-topbar {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-bottom: 1px solid var(--color-border-medium, #e5e7eb);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(8px);
+}
+
+.topbar-content {
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.topbar-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text-primary, #111827);
+    margin: 0;
+}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-greeting {
+    font-size: 0.9375rem;
+    color: var(--color-text-secondary, #6b7280);
+    font-weight: 500;
+}
+
+/* Main Content - FIXED SPACING */
+.app-content {
+    flex: 1;
+    padding: 2rem;
+    max-width: 1600px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+/* Remove broken left padding from old layout */
+.app-content .px-4 {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* Error State */
+.error-state {
+    padding: 3rem 1.5rem;
+    text-align: center;
+    background-color: var(--color-error-light, #fee2e2);
+    border-radius: 0.75rem;
+    color: var(--color-error, #ef4444);
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 1024px) {
+    .app-sidebar {
+        width: 220px;
+    }
+
+    .app-main {
+        margin-left: 0;
+    }
+
+    .topbar-content {
+        padding: 1rem 1.5rem;
+    }
+
+    .app-content {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .app-main {
+        margin-left: 0;
+    }
+
+    .topbar-content {
+        padding: 1rem;
+    }
+
+    .app-content {
+        padding: 1rem;
+    }
+
+    .topbar-title {
+        font-size: 1.125rem;
+    }
+
+    .user-greeting {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-content {
+        padding: 0.75rem;
+    }
+
+    .topbar-content {
+        padding: 0.75rem;
+    }
+}
+
+/* ============================================
+   OVERRIDE OLD GRADIENT STYLES
+   ============================================ */
+
+/* Remove any gradient backgrounds from old sidebar */
+.sidebar,
+.app-sidebar,
+.navbar,
+.top-row.navbar {
+    background: var(--color-bg-primary, #ffffff) !important;
+    background-image: none !important;
+}
+
+/* Fix old nav-item spacing */
+.nav-item.px-3 {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* Ensure content doesn't have broken margins */
+article.content {
+    padding-left: 0;
+    padding-right: 0;
+}

@@ -1,0 +1,153 @@
+@page "/goals"
+@using BookDashboardBlazor.Models
+@inject HttpClient Http
+@attribute [Authorize]
+
+<h3>Reading Goals</h3>
+
+<button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add Goal</button>
+
+<GenericTable Items="goals" OnEdit="OpenEditModal" OnDelete="DeleteGoal">
+    <TableHeader>
+        <th>ID</th>
+        <th>Year</th>
+        <th>Goal</th>
+        <th>Progress</th>
+    </TableHeader>
+    <RowTemplate Context="goal">
+        <td>@goal.Id</td>
+        <td>@goal.Year</td>
+        <td>@goal.Goal</td>
+        <td>@goal.Progress</td>
+    </RowTemplate>
+</GenericTable>
+
+<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal">
+    <EditForm Model="@currentGoal" OnValidSubmit="SaveGoal">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label>Year</label>
+            <InputNumber @bind-Value="currentGoal.Year" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label>Goal (Books)</label>
+            <InputNumber @bind-Value="currentGoal.Goal" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label>Progress</label>
+            <InputNumber @bind-Value="currentGoal.Progress" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+</Modal>
+
+@code {
+    private List<ReadingGoal> goals = new();
+    private ReadingGoal currentGoal = new();
+    private bool showModal = false;
+    private string modalTitle = "Add Goal";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGoals();
+    }
+
+    private async Task LoadGoals()
+    {
+        try
+        {
+            var response = await Http.GetAsync("api/ReadingGoal");
+            if (response.IsSuccessStatusCode)
+            {
+                goals = await response.Content.ReadFromJsonAsync<List<ReadingGoal>>() ?? new List<ReadingGoal>();
+            }
+            else
+            {
+                goals = new List<ReadingGoal>();
+                Console.WriteLine($"Error loading goals: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            goals = new List<ReadingGoal>();
+            Console.WriteLine($"Exception loading goals: {ex.Message}");
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        currentGoal = new ReadingGoal { Year = DateTime.Now.Year };
+        modalTitle = "Add Goal";
+        showModal = true;
+    }
+
+    private void OpenEditModal(ReadingGoal goal)
+    {
+        currentGoal = new ReadingGoal
+        {
+            Id = goal.Id,
+            UserId = goal.UserId,
+            Year = goal.Year,
+            Goal = goal.Goal,
+            Progress = goal.Progress,
+            CreatedAt = goal.CreatedAt
+        };
+        modalTitle = "Edit Goal";
+        showModal = true;
+    }
+
+    private void CloseModal() => showModal = false;
+
+    private async Task SaveGoal()
+    {
+        try
+        {
+            if (currentGoal.Id == 0)
+            {
+                var response = await Http.PostAsJsonAsync("api/ReadingGoal", currentGoal);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"Error creating goal: {response.StatusCode}");
+                    return;
+                }
+            }
+            else
+            {
+                var response = await Http.PutAsJsonAsync($"api/ReadingGoal/{currentGoal.Id}", currentGoal);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"Error updating goal: {response.StatusCode}");
+                    return;
+                }
+            }
+            showModal = false;
+            await LoadGoals();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception saving goal: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteGoal(ReadingGoal goal)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"api/ReadingGoal/{goal.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadGoals();
+            }
+            else
+            {
+                Console.WriteLine($"Error deleting goal: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception deleting goal: {ex.Message}");
+        }
+    }
+}

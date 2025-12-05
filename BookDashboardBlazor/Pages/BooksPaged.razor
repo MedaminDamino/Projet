@@ -1,0 +1,335 @@
+@page "/books-paged"
+@using BookDashboardBlazor.Models
+@using BookDashboardBlazor.Services
+@using BookDashboardBlazor.Shared.Components
+@inject HttpClient Http
+@inject BookPaginationService BookPaginationService
+@attribute [Authorize]
+
+<h3>Books (Paginated & Sorted)</h3>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>Error!</strong> @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null" aria-label="Close"></button>
+    </div>
+}
+
+@if (isLoading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Loading books...</p>
+    </div>
+}
+else
+{
+    <div class="table-responsive modern-table">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <SortableHeader Label="ID" 
+                                    SortBy="bookId" 
+                                    CurrentSortBy="@(currentSort?.SortBy)"
+                                    CurrentSortDirection="@(currentSort?.Direction ?? SortDirection.None)"
+                                    OnSortChanged="HandleSortChanged" />
+                    
+                    <SortableHeader Label="Title" 
+                                    SortBy="title" 
+                                    CurrentSortBy="@(currentSort?.SortBy)"
+                                    CurrentSortDirection="@(currentSort?.Direction ?? SortDirection.None)"
+                                    OnSortChanged="HandleSortChanged" />
+                    
+                    <SortableHeader Label="Author" 
+                                    SortBy="authorId" 
+                                    CurrentSortBy="@(currentSort?.SortBy)"
+                                    CurrentSortDirection="@(currentSort?.Direction ?? SortDirection.None)"
+                                    OnSortChanged="HandleSortChanged" />
+                    
+                    <SortableHeader Label="Genre" 
+                                    SortBy="genreId" 
+                                    CurrentSortBy="@(currentSort?.SortBy)"
+                                    CurrentSortDirection="@(currentSort?.Direction ?? SortDirection.None)"
+                                    OnSortChanged="HandleSortChanged" />
+                    
+                    <SortableHeader Label="Year" 
+                                    SortBy="publishyear" 
+                                    CurrentSortBy="@(currentSort?.SortBy)"
+                                    CurrentSortDirection="@(currentSort?.Direction ?? SortDirection.None)"
+                                    OnSortChanged="HandleSortChanged" />
+                    
+                    <th>Description</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (pagedResult?.Items == null || !pagedResult.Items.Any())
+                {
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            No books found
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var book in pagedResult.Items)
+                    {
+                        <tr>
+                            <td>@book.BookId</td>
+                            <td><strong>@book.Title</strong></td>
+                            <td>@GetAuthorName(book.AuthorId)</td>
+                            <td>
+                                <span class="badge bg-secondary">@GetGenreName(book.GenreId)</span>
+                            </td>
+                            <td>@book.PublishYear</td>
+                            <td>
+                                <span class="text-truncate d-inline-block" style="max-width: 200px;" title="@book.Description">
+                                    @book.Description
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => OpenEditModal(book)">
+                                    Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBook(book)">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (pagedResult != null && pagedResult.TotalItems > 0)
+    {
+        <Pagination TotalItems="@pagedResult.TotalItems"
+                    PageSize="@pagination.PageSize"
+                    CurrentPage="@pagination.Page"
+                    OnPageChanged="HandlePageChanged"
+                    OnPageSizeChanged="HandlePageSizeChanged" />
+    }
+}
+
+<!-- Edit Modal -->
+<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal">
+    <EditForm Model="@currentBook" OnValidSubmit="SaveBook">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label>Title</label>
+            <InputText @bind-Value="currentBook.Title" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label>Author</label>
+            <InputSelect @bind-Value="currentBook.AuthorId" class="form-select">
+                <option value="0">Select Author</option>
+                @foreach (var author in authors)
+                {
+                    <option value="@author.AuthorId">@author.Name</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="mb-3">
+            <label>Genre</label>
+            <InputSelect @bind-Value="currentBook.GenreId" class="form-select">
+                <option value="0">Select Genre</option>
+                @foreach (var genre in genres)
+                {
+                    <option value="@genre.GenreId">@genre.GenreName</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="mb-3">
+            <label>Publish Year</label>
+            <InputNumber @bind-Value="currentBook.PublishYear" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label>Description</label>
+            <InputTextArea @bind-Value="currentBook.Description" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+</Modal>
+
+@code {
+    private PagedResult<Book>? pagedResult;
+    private List<Author> authors = new();
+    private List<Genre> genres = new();
+    
+    private Book currentBook = new();
+    private bool showModal = false;
+    private string modalTitle = "Add Book";
+    private bool isLoading = false;
+    private string? errorMessage;
+
+    private PaginationModel pagination = new() { Page = 1, PageSize = 10 };
+    private SortModel currentSort = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadAuthorsAndGenres();
+            await LoadBooks();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Initialization error: {ex.Message}";
+            Console.WriteLine($"Error in OnInitializedAsync: {ex}");
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadAuthorsAndGenres()
+    {
+        try
+        {
+            var authorsResponse = await Http.GetAsync("api/Author");
+            var genresResponse = await Http.GetAsync("api/Genre");
+
+            if (authorsResponse.IsSuccessStatusCode)
+            {
+                authors = await authorsResponse.Content.ReadFromJsonAsync<List<Author>>() ?? new List<Author>();
+            }
+
+            if (genresResponse.IsSuccessStatusCode)
+            {
+                genres = await genresResponse.Content.ReadFromJsonAsync<List<Genre>>() ?? new List<Genre>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading authors/genres: {ex.Message}");
+        }
+    }
+
+    private async Task LoadBooks()
+    {
+        isLoading = true;
+        errorMessage = null;
+        
+        try
+        {
+            // Use client-side pagination (since API might not support pagination)
+            // For server-side pagination, use: pagedResult = await BookPaginationService.GetBooksAsync(pagination, currentSort);
+            pagedResult = await BookPaginationService.GetBooksClientSideAsync(pagination, currentSort);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading books: {ex.Message}";
+            Console.WriteLine(errorMessage);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandlePageChanged(int newPage)
+    {
+        pagination.Page = newPage;
+        await LoadBooks();
+        
+        // Scroll to top of table
+        await Task.Delay(100);
+    }
+
+    private async Task HandlePageSizeChanged(int newPageSize)
+    {
+        pagination.PageSize = newPageSize;
+        pagination.Page = 1; // Reset to first page
+        await LoadBooks();
+    }
+
+    private async Task HandleSortChanged((string SortBy, SortDirection Direction) sortInfo)
+    {
+        currentSort.SortBy = sortInfo.SortBy;
+        currentSort.Direction = sortInfo.Direction;
+        pagination.Page = 1; // Reset to first page when sorting
+        await LoadBooks();
+    }
+
+    private string GetAuthorName(int? id) => id.HasValue
+        ? authors.FirstOrDefault(a => a.AuthorId == id.Value)?.Name ?? "Unknown"
+        : "Unknown";
+
+    private string GetGenreName(int? id) => id.HasValue
+        ? genres.FirstOrDefault(g => g.GenreId == id.Value)?.GenreName ?? "Unknown"
+        : "Unknown";
+
+    private void OpenEditModal(Book book)
+    {
+        currentBook = new Book
+        {
+            BookId = book.BookId,
+            Title = book.Title,
+            AuthorId = book.AuthorId,
+            GenreId = book.GenreId,
+            PublishYear = book.PublishYear,
+            Description = book.Description
+        };
+        modalTitle = "Edit Book";
+        showModal = true;
+    }
+
+    private void CloseModal() => showModal = false;
+
+    private async Task SaveBook()
+    {
+        try
+        {
+            if (currentBook.BookId == 0)
+            {
+                var response = await Http.PostAsJsonAsync("api/Books", currentBook);
+                if (!response.IsSuccessStatusCode)
+                {
+                    errorMessage = "Error creating book";
+                    return;
+                }
+            }
+            else
+            {
+                var response = await Http.PutAsJsonAsync($"api/Books/{currentBook.BookId}", currentBook);
+                if (!response.IsSuccessStatusCode)
+                {
+                    errorMessage = "Error updating book";
+                    return;
+                }
+            }
+            showModal = false;
+            await LoadBooks();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving book: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteBook(Book book)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"api/Books/{book.BookId}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadBooks();
+            }
+            else
+            {
+                errorMessage = "Error deleting book";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting book: {ex.Message}";
+        }
+    }
+}
+

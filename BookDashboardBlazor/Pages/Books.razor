@@ -1,0 +1,535 @@
+@page "/books"
+@using BookDashboardBlazor.Models
+@using Microsoft.AspNetCore.Components.Forms
+@inject HttpClient Http
+@attribute [Authorize]
+
+<h3>Books</h3>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>Error!</strong> @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null" aria-label="Close"></button>
+    </div>
+}
+
+<button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add Book</button>
+
+<GenericTable Items="books" OnEdit="OpenEditModal" OnDelete="DeleteBook">
+    <TableHeader>
+        <th style="width:80px;">Cover</th>
+        <th>ID</th>
+        <th>Title</th>
+        <th>Author</th>
+        <th>Genre</th>
+        <th>Year</th>
+        <th>Description</th>
+    </TableHeader>
+    <RowTemplate Context="book">
+        <td>
+            @if (!string.IsNullOrWhiteSpace(book.ImageUrl))
+            {
+                <img src="@ResolveImageUrl(book.ImageUrl)"
+                     alt="@($"{book.Title} cover")"
+                     style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;" />
+            }
+            else
+            {
+                <div class="text-muted small">No image</div>
+            }
+        </td>
+        <td>@book.BookId</td>
+        <td>@book.Title</td>
+        <td>
+            <button class="btn btn-link p-0" @onclick="() => ShowAuthorDetails(book.AuthorId)">
+                @GetAuthorName(book.AuthorId)
+            </button>
+        </td>
+        <td>
+            <button class="btn btn-link p-0" @onclick="() => ShowGenreDetails(book.GenreId)">
+                @GetGenreName(book.GenreId)
+            </button>
+        </td>
+        <td>@book.PublishYear</td>
+        <td>@book.Description</td>
+    </RowTemplate>
+</GenericTable>
+
+@* Create/Edit Modal *@
+<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal">
+    @* Use OnSubmit so SaveBook ALWAYS runs (even if validation fails) *@
+    <EditForm Model="@currentBook" OnSubmit="SaveBook">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label>Title</label>
+            <InputText @bind-Value="currentBook.Title" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label>Author</label>
+            <InputSelect @bind-Value="currentBook.AuthorId" class="form-select">
+                <option value="0">Select Author</option>
+                @foreach (var author in authors)
+                {
+                    <option value="@author.AuthorId">@author.Name</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="mb-3">
+            <label>Genre</label>
+            <InputSelect @bind-Value="currentBook.GenreId" class="form-select">
+                <option value="0">Select Genre</option>
+                @foreach (var genre in genres)
+                {
+                    <option value="@genre.GenreId">@genre.GenreName</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="mb-3">
+            <label>Publish Year</label>
+            <InputNumber @bind-Value="currentBook.PublishYear" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label>Description</label>
+            <InputTextArea @bind-Value="currentBook.Description" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Cover Image</label>
+            <div class="upload-card d-flex align-items-center gap-3 flex-wrap">
+                <div class="cover-preview d-flex align-items-center justify-content-center text-muted">
+                    @if (!string.IsNullOrWhiteSpace(imagePreviewUrl))
+                    {
+                        <img src="@imagePreviewUrl" alt="Cover preview" />
+                    }
+                    else
+                    {
+                        <div class="text-center small">
+                            <i class="bi bi-image fs-5 d-block mb-1"></i>
+                            No image
+                        </div>
+                    }
+                </div>
+                <div class="flex-grow-1">
+                    <label class="btn btn-outline-primary btn-sm mb-2">
+                        <i class="bi bi-upload me-1"></i>Choose file
+                        <InputFile class="d-none" OnChange="OnImageSelected" accept="image/*" />
+                    </label>
+                    <div class="small text-muted">
+                        JPG/PNG up to 5MB. Leave empty to keep current.
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+</Modal>
+
+@* Detail Modal *@
+<Modal Show="showDetailModal" Title="@detailTitle" OnClose="CloseDetailModal">
+    @if (selectedAuthor != null)
+    {
+        <p><strong>Name:</strong> @selectedAuthor.Name</p>
+        <p><strong>Bio:</strong> @selectedAuthor.Bio</p>
+    }
+    else if (selectedGenre != null)
+    {
+        <p><strong>Name:</strong> @selectedGenre.GenreName</p>
+    }
+</Modal>
+
+@* Delete Confirmation Modal *@
+<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal">
+    <p>Are you sure you want to delete <strong>@itemToDelete?.Title</strong>?</p>
+    <div class="mt-3">
+        <button class="btn btn-danger me-2" @onclick="ConfirmDelete">Delete</button>
+        <button class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
+    </div>
+</Modal>
+
+@code {
+    private List<Book> books = new();
+    private List<Author> authors = new();
+    private List<Genre> genres = new();
+
+    private Book currentBook = new();
+    private Book? itemToDelete = null; // for delete modal
+
+    private IBrowserFile? selectedImageFile;
+    private string? imagePreviewUrl;
+    private bool showModal = false;
+    private string modalTitle = "Add Book";
+
+    // Detail Modal State
+    private bool showDetailModal = false;
+    private string detailTitle = "";
+    private Author? selectedAuthor;
+    private Genre? selectedGenre;
+
+    // Delete Modal State
+    private bool showDeleteModal = false;
+
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Console.WriteLine("[Books] OnInitializedAsync called");
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        errorMessage = null;
+        try
+        {
+            Console.WriteLine("[Books] Loading data from API...");
+            var booksTask = GetListSafeAsync<Book>("api/Books");
+            var authorsTask = GetListSafeAsync<Author>("api/Author");
+            var genresTask = GetListSafeAsync<Genre>("api/Genre");
+
+            await Task.WhenAll(booksTask, authorsTask, genresTask);
+
+            books = await booksTask;
+            authors = await authorsTask;
+            genres = await genresTask;
+
+            Console.WriteLine($"[Books] Loaded {books.Count} books, {authors.Count} authors, {genres.Count} genres");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unexpected error loading data: {ex.Message}";
+            Console.WriteLine($"[Books] Exception in LoadData: {ex}");
+        }
+    }
+
+    private async Task<List<T>> GetListSafeAsync<T>(string url)
+    {
+        try
+        {
+            Console.WriteLine($"[Books] GET {url}");
+            var result = await Http.GetFromJsonAsync<List<T>>(url) ?? new List<T>();
+            Console.WriteLine($"[Books] GET {url} returned {result.Count} items");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Books] Error fetching {url}: {ex.Message}");
+            return new List<T>();
+        }
+    }
+
+    private string GetAuthorName(int? id) => id.HasValue
+        ? authors.FirstOrDefault(a => a.AuthorId == id.Value)?.Name ?? "Unknown"
+        : "Unknown";
+
+    private string GetGenreName(int? id) => id.HasValue
+        ? genres.FirstOrDefault(g => g.GenreId == id.Value)?.GenreName ?? "Unknown"
+        : "Unknown";
+
+    private void OpenCreateModal()
+    {
+        Console.WriteLine("[Books] OpenCreateModal clicked");
+        currentBook = new Book();
+        selectedImageFile = null;
+        imagePreviewUrl = null;
+        modalTitle = "Add Book";
+        showModal = true;
+    }
+
+    private void OpenEditModal(Book book)
+    {
+        Console.WriteLine($"[Books] OpenEditModal for BookId={book.BookId}, Title='{book.Title}'");
+        currentBook = new Book
+        {
+            BookId = book.BookId,
+            Title = book.Title,
+            AuthorId = book.AuthorId,
+            GenreId = book.GenreId,
+            PublishYear = book.PublishYear,
+            Description = book.Description,
+            ImageUrl = book.ImageUrl
+        };
+        selectedImageFile = null;
+        imagePreviewUrl = book.ImageUrl;
+        modalTitle = "Edit Book";
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        Console.WriteLine("[Books] CloseModal called");
+        showModal = false;
+    }
+
+    private async Task SaveBook()
+    {
+        Console.WriteLine($"[Books] SaveBook called. BookId={currentBook.BookId}, Title='{currentBook.Title}'");
+        errorMessage = null;
+
+        using var content = BuildMultipartContent();
+
+        HttpResponseMessage response;
+        try
+        {
+            if (currentBook.BookId == 0)
+            {
+                Console.WriteLine("[Books] Creating new book via POST api/Books");
+                response = await Http.PostAsync("api/Books", content);
+            }
+            else
+            {
+                Console.WriteLine($"[Books] Updating book via PUT api/Books/{currentBook.BookId}");
+                response = await Http.PutAsync($"api/Books/{currentBook.BookId}", content);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Request failed: {ex.Message}";
+            Console.WriteLine($"[Books] Exception during SaveBook HTTP call: {ex}");
+            return;
+        }
+
+        var jsonContent = await response.Content.ReadAsStringAsync();
+        Console.WriteLine($"[Books] SaveBook HTTP status: {(int)response.StatusCode} {response.StatusCode}");
+        Console.WriteLine($"[Books] SaveBook response body (first 300 chars): {jsonContent.Substring(0, Math.Min(300, jsonContent.Length))}");
+
+        var options = new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
+        try
+        {
+            // Try to parse as ApiResponse<Book> (like ReadingList)
+            var apiResponse =
+                System.Text.Json.JsonSerializer.Deserialize<ApiResponse<Book>>(jsonContent, options);
+
+            if (!response.IsSuccessStatusCode || apiResponse == null || !apiResponse.Success)
+            {
+                errorMessage = apiResponse?.Message ??
+                               $"Failed to save book (status {(int)response.StatusCode}).";
+                Console.WriteLine($"[Books] Error saving book: {errorMessage} (Code: {apiResponse?.ErrorCode})");
+                return;
+            }
+
+            Console.WriteLine($"[Books] SaveBook ApiResponse.Success = true. BookId={apiResponse.Data?.BookId}");
+        }
+        catch (System.Text.Json.JsonException jsonEx)
+        {
+            Console.WriteLine($"[Books] JSON parse error in SaveBook: {jsonEx.Message}");
+            // Fallback: if Books endpoint returns plain Book or no wrapper
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = $"Failed to save book (status {(int)response.StatusCode}). Server says: {jsonContent}";
+                Console.WriteLine($"[Books] Fallback SaveBook error: {errorMessage}");
+                return;
+            }
+
+            Console.WriteLine("[Books] SaveBook fallback: treating response as success without ApiResponse wrapper.");
+        }
+
+        // Success
+        Console.WriteLine("[Books] SaveBook succeeded, closing modal and reloading data.");
+        showModal = false;
+        await LoadData();
+    }
+
+    private async Task DeleteBook(Book book)
+    {
+        // Called from GenericTable OnDelete
+        Console.WriteLine($"[Books] DeleteBook clicked for BookId={book.BookId}, Title='{book.Title}'");
+        await Task.CompletedTask; // keep async signature
+        itemToDelete = book;
+        showDeleteModal = true;
+    }
+
+    private void CloseDeleteModal()
+    {
+        Console.WriteLine("[Books] CloseDeleteModal called");
+        showDeleteModal = false;
+        itemToDelete = null;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (itemToDelete == null)
+        {
+            Console.WriteLine("[Books] ConfirmDelete called but itemToDelete is null");
+            return;
+        }
+
+        Console.WriteLine($"[Books] ConfirmDelete for BookId={itemToDelete.BookId}, Title='{itemToDelete.Title}'");
+
+        try
+        {
+            errorMessage = null;
+
+            Console.WriteLine($"[Books] Sending DELETE api/Books/{itemToDelete.BookId}");
+            var response = await Http.DeleteAsync($"api/Books/{itemToDelete.BookId}");
+            var jsonContent = await response.Content.ReadAsStringAsync();
+
+            Console.WriteLine($"[Books] ConfirmDelete HTTP status: {(int)response.StatusCode} {response.StatusCode}");
+            Console.WriteLine($"[Books] ConfirmDelete response body (first 300 chars): {jsonContent.Substring(0, Math.Min(300, jsonContent.Length))}");
+
+            var options = new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+
+            try
+            {
+                // Try ApiResponse<object> like ReadingList
+                var apiResponse =
+                    System.Text.Json.JsonSerializer.Deserialize<ApiResponse<object>>(jsonContent, options);
+
+                if (apiResponse != null && apiResponse.Success)
+                {
+                    Console.WriteLine($"[Books] ConfirmDelete ApiResponse.Success = true. Removing from local list BookId={itemToDelete.BookId}");
+
+                    books.RemoveAll(b => b.BookId == itemToDelete.BookId);
+
+                    showDeleteModal = false;
+                    itemToDelete = null;
+
+                    Console.WriteLine("[Books] ConfirmDelete reloading data from server...");
+                    await LoadData();
+                    return;
+                }
+
+                errorMessage = apiResponse?.Message ??
+                               $"Failed to delete book: {response.StatusCode}";
+                Console.WriteLine($"[Books] Error deleting book: {errorMessage} (Code: {apiResponse?.ErrorCode})");
+            }
+            catch (System.Text.Json.JsonException jsonEx)
+            {
+                Console.WriteLine($"[Books] JSON parse error in ConfirmDelete: {jsonEx.Message}");
+
+                // Fallback: endpoint returns no wrapper
+                if (!response.IsSuccessStatusCode)
+                {
+                    errorMessage = $"Failed to delete book (status {(int)response.StatusCode}). Server says: {jsonContent}";
+                    Console.WriteLine($"[Books] Fallback delete error: {errorMessage}");
+                }
+                else
+                {
+                    Console.WriteLine($"[Books] ConfirmDelete fallback: treating delete as success. Removing BookId={itemToDelete.BookId} locally.");
+                    books.RemoveAll(b => b.BookId == itemToDelete.BookId);
+                }
+            }
+
+            showDeleteModal = false;
+            itemToDelete = null;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting book: {ex.Message}";
+            Console.WriteLine($"[Books] Exception in ConfirmDelete: {ex}");
+            showDeleteModal = false;
+            itemToDelete = null;
+        }
+    }
+
+    // Detail Modal Logic
+    private void ShowAuthorDetails(int authorId)
+    {
+        Console.WriteLine($"[Books] ShowAuthorDetails for AuthorId={authorId}");
+        selectedAuthor = authors.FirstOrDefault(a => a.AuthorId == authorId);
+        selectedGenre = null;
+        if (selectedAuthor != null)
+        {
+            detailTitle = "Author Details";
+            showDetailModal = true;
+        }
+        else
+        {
+            Console.WriteLine("[Books] ShowAuthorDetails: author not found");
+        }
+    }
+
+    private void ShowGenreDetails(int genreId)
+    {
+        Console.WriteLine($"[Books] ShowGenreDetails for GenreId={genreId}");
+        selectedGenre = genres.FirstOrDefault(g => g.GenreId == genreId);
+        selectedAuthor = null;
+        if (selectedGenre != null)
+        {
+            detailTitle = "Genre Details";
+            showDetailModal = true;
+        }
+        else
+        {
+            Console.WriteLine("[Books] ShowGenreDetails: genre not found");
+        }
+    }
+
+    private void CloseDetailModal()
+    {
+        Console.WriteLine("[Books] CloseDetailModal called");
+        showDetailModal = false;
+    }
+
+    private async Task OnImageSelected(InputFileChangeEventArgs e)
+    {
+        selectedImageFile = e.File;
+        const long maxFileSize = 5 * 1024 * 1024;
+
+        Console.WriteLine($"[Books] OnImageSelected: file '{selectedImageFile.Name}', size={selectedImageFile.Size}");
+
+        try
+        {
+            await using var stream = selectedImageFile.OpenReadStream(maxFileSize);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var base64 = Convert.ToBase64String(ms.ToArray());
+            imagePreviewUrl = $"data:{selectedImageFile.ContentType};base64,{base64}";
+            Console.WriteLine("[Books] OnImageSelected: preview URL generated");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Image load failed: {ex.Message}";
+            Console.WriteLine($"[Books] Exception in OnImageSelected: {ex}");
+            selectedImageFile = null;
+            imagePreviewUrl = null;
+        }
+    }
+
+    private MultipartFormDataContent BuildMultipartContent()
+    {
+        Console.WriteLine("[Books] BuildMultipartContent called");
+        Console.WriteLine($"[Books]   Title='{currentBook.Title}', AuthorId={currentBook.AuthorId}, GenreId={currentBook.GenreId}, PublishYear={currentBook.PublishYear}, HasImageFile={selectedImageFile != null}");
+
+        var content = new MultipartFormDataContent();
+        content.Add(new StringContent(currentBook.Title ?? string.Empty), "Title");
+        content.Add(new StringContent(currentBook.AuthorId.ToString()), "AuthorId");
+        content.Add(new StringContent(currentBook.GenreId.ToString()), "GenreId");
+        if (currentBook.PublishYear.HasValue)
+        {
+            content.Add(new StringContent(currentBook.PublishYear.Value.ToString()), "PublishYear");
+        }
+        content.Add(new StringContent(currentBook.Description ?? string.Empty), "Description");
+
+        if (selectedImageFile != null)
+        {
+            var fileContent = new StreamContent(selectedImageFile.OpenReadStream(5 * 1024 * 1024));
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(selectedImageFile.ContentType);
+            content.Add(fileContent, "Image", selectedImageFile.Name);
+        }
+
+        return content;
+    }
+
+    private string? ResolveImageUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+
+        // If already absolute, return as-is
+        if (Uri.TryCreate(url, UriKind.Absolute, out var absolute))
+            return absolute.ToString();
+
+        // Use BaseAddress if set, otherwise localhost
+        var baseUri = Http.BaseAddress ?? new Uri("http://localhost/");
+        var combined = new Uri(baseUri, url.TrimStart('/'));
+        return combined.ToString();
+    }
+}

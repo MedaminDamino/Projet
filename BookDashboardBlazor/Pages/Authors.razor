@@ -1,0 +1,118 @@
+@page "/authors"
+@using BookDashboardBlazor.Models
+@inject HttpClient Http
+@attribute [Authorize]
+
+<h3>Authors</h3>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>Error!</strong> @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null" aria-label="Close"></button>
+    </div>
+}
+
+<button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add Author</button>
+
+<GenericTable Items="authors" OnEdit="OpenEditModal" OnDelete="DeleteAuthor">
+    <TableHeader>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Bio</th>
+    </TableHeader>
+    <RowTemplate Context="author">
+        <td>@author.AuthorId</td>
+        <td>@author.Name</td>
+        <td>@author.Bio</td>
+    </RowTemplate>
+</GenericTable>
+
+<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal">
+    <EditForm Model="@currentAuthor" OnValidSubmit="SaveAuthor">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label>Name</label>
+            <InputText @bind-Value="currentAuthor.Name" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label>Bio</label>
+            <InputTextArea @bind-Value="currentAuthor.Bio" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+</Modal>
+
+@code {
+    private List<Author> authors = new();
+    private Author currentAuthor = new();
+    private bool showModal = false;
+    private string modalTitle = "Add Author";
+
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAuthors();
+    }
+
+    private async Task LoadAuthors()
+    {
+        try
+        {
+            errorMessage = null;
+            authors = await Http.GetFromJsonAsync<List<Author>>("api/Author") ?? new List<Author>();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading authors: {ex.Message}. Is the backend API running?";
+            Console.WriteLine(ex);
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        currentAuthor = new Author();
+        modalTitle = "Add Author";
+        showModal = true;
+    }
+
+    private void OpenEditModal(Author author)
+    {
+        currentAuthor = new Author
+        {
+            AuthorId = author.AuthorId,
+            Name = author.Name,
+            Bio = author.Bio
+        };
+        modalTitle = "Edit Author";
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+    private async Task SaveAuthor()
+    {
+        if (currentAuthor.AuthorId == 0)
+        {
+            await Http.PostAsJsonAsync("api/Author", currentAuthor);
+        }
+        else
+        {
+            await Http.PutAsJsonAsync($"api/Author/{currentAuthor.AuthorId}", currentAuthor);
+        }
+        showModal = false;
+        await LoadAuthors();
+    }
+
+    private async Task DeleteAuthor(Author author)
+    {
+        await Http.DeleteAsync($"api/Author/{author.AuthorId}");
+        await LoadAuthors();
+    }
+}

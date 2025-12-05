@@ -1,0 +1,406 @@
+@page "/discover"
+@inject HttpClient Http
+@using BookDashboardBlazor.Models
+
+<PageTitle>Discover Books</PageTitle>
+
+<div class="discover-page">
+    <div class="container-xxl">
+        <!-- Hero / Search -->
+        <div class="card hero-card shadow-sm border-0 my-4">
+            <div class="card-body d-flex flex-column flex-lg-row align-items-lg-center gap-3 gap-lg-4">
+                <div class="d-flex flex-column">
+                    <span class="text-muted small text-uppercase fw-semibold">Discover</span>
+                    <h2 class="mb-1 fw-semibold">Discover Books</h2>
+                    <p class="text-muted mb-0">Browse curated titles and filter by genre, rating, or recency.</p>
+                </div>
+                <div class="ms-lg-auto w-100 w-lg-50">
+                    <div class="input-group search-box shadow-sm">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="bi bi-search text-primary"></i>
+                        </span>
+                        <input class="form-control border-start-0"
+                               placeholder="Search by title or author..."
+                               value="@searchQuery"
+                               @oninput="OnSearchChanged" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Filters -->
+            <div class="col-12 col-lg-3">
+                <div class="card shadow-sm border-0 h-100 sticky-filters">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0 text-uppercase text-muted fw-semibold small">Filters</h6>
+                            <span class="badge bg-light text-secondary border">Live</span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label small fw-semibold text-muted">Genres</label>
+                            <div class="d-grid gap-2 filter-list">
+                                @if (genres == null || !genres.Any())
+                                {
+                                    <span class="text-muted small">Loading genres...</span>
+                                }
+                                else
+                                {
+                                    @foreach (var genre in genres)
+                                    {
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="genre-@genre.GenreId"
+                                                   checked="@selectedGenres.GetValueOrDefault(genre.GenreId)"
+                                                   @onchange="e => OnGenreToggled(genre.GenreId, e)" />
+                                            <label class="form-check-label" for="genre-@genre.GenreId">
+                                                @genre.GenreName
+                                            </label>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Minimum rating</label>
+                            <select class="form-select" @bind="MinRating">
+                                <option value="0">Any rating</option>
+                                <option value="4">4+ stars</option>
+                                <option value="3">3+ stars</option>
+                                <option value="2">2+ stars</option>
+                                <option value="1">1+ stars</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Sort by</label>
+                            <select class="form-select" @bind="SortOption">
+                                <option value="trending">Trending</option>
+                                <option value="newest">Newest</option>
+                                <option value="rating">Top rated</option>
+                                <option value="title">A-Z</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-primary w-100" @onclick="ApplyFilters">
+                            Apply filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Books grid -->
+            <div class="col-12 col-lg-9">
+                @if (isLoading)
+                {
+                    <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-4">
+                        @for (int i = 0; i < 8; i++)
+                        {
+                            <div class="col">
+                                <div class="card h-100 shadow-sm placeholder-card">
+                                    <div class="ratio ratio-3x4 placeholder-glow">
+                                        <div class="placeholder w-100 h-100"></div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="placeholder-glow">
+                                            <div class="placeholder col-8 mb-2"></div>
+                                            <div class="placeholder col-5 mb-2"></div>
+                                            <div class="placeholder col-10 mb-3"></div>
+                                            <div class="placeholder col-6"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (books == null || !books.Any())
+                {
+                    <div class="card border-0 shadow-sm text-center p-5">
+                        <div class="card-body">
+                            <i class="bi bi-search text-muted display-4 mb-3"></i>
+                            <h5 class="fw-semibold mb-2">No books found</h5>
+                            <p class="text-muted mb-0">Try adjusting your search or filters to see more results.</p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-4">
+                        @foreach (var book in books)
+                        {
+                            <div class="col">
+                                <div class="card h-100 shadow-sm book-card">
+                                    <div class="ratio ratio-3x4 bg-light position-relative">
+                                        @if (!string.IsNullOrWhiteSpace(book.CoverImageUrl))
+                                        {
+                                            <img src="@book.CoverImageUrl" alt="@book.Title cover" class="book-cover" />
+                                        }
+                                        else
+                                        {
+                                            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-primary">
+                                                <i class="bi bi-book fs-3 mb-1"></i>
+                                                <span class="small">No cover</span>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="card-body d-flex flex-column">
+                                        <div class="d-flex align-items-start justify-content-between gap-2">
+                                            <h6 class="mb-1 fw-semibold text-truncate" title="@book.Title">@book.Title</h6>
+                                            <span class="badge bg-soft-primary text-primary">@GetGenreName(book.GenreId)</span>
+                                        </div>
+                                        <p class="text-muted small mb-2">@GetAuthorName(book.AuthorId)</p>
+                                        <p class="text-secondary small flex-grow-1 overflow-hidden">
+                                            @Truncate(book.Description, 110)
+                                        </p>
+                                        <div class="d-flex align-items-center justify-content-between mt-2">
+                                            <div class="d-flex align-items-center gap-2 text-muted small">
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <span>@book.AverageRating.ToString("0.0")</span>
+                                                <span>&middot;</span>
+                                                <span>@book.PublishYear</span>
+                                            </div>
+                                            <button class="btn btn-outline-primary btn-sm" @onclick="() => HandleAddToList(book)">
+                                                <i class="bi bi-plus-lg me-1"></i> Add
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    @if (hasMoreBooks)
+                    {
+                        <div class="text-center mt-4">
+                            <button class="btn btn-primary px-4" @onclick="LoadMoreBooks" disabled="@isLoadingMore">
+                                @if (isLoadingMore)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    <span>Loading…</span>
+                                }
+                                else
+                                {
+                                    <span>Load more</span>
+                                }
+                            </button>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<BookDiscover> books = new();
+    private List<Author> authors = new();
+    private List<Genre> genres = new();
+    private Dictionary<int, bool> selectedGenres = new();
+
+    private string searchQuery = string.Empty;
+    private int _minRating = 0;
+    private string _sortOption = "trending";
+    private bool isLoading = true;
+    private bool isLoadingMore = false;
+    private bool hasMoreBooks = true;
+    private int currentPage = 1;
+    private const int PageSize = 20;
+    private System.Timers.Timer? _debounceTimer;
+
+    private int MinRating
+    {
+        get => _minRating;
+        set
+        {
+            if (_minRating != value)
+            {
+                _minRating = value;
+                _ = LoadBooks();
+            }
+        }
+    }
+
+    private string SortOption
+    {
+        get => _sortOption;
+        set
+        {
+            if (_sortOption != value)
+            {
+                _sortOption = value;
+                _ = LoadBooks();
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGenresAndAuthors();
+        await LoadBooks();
+    }
+
+    private async Task LoadGenresAndAuthors()
+    {
+        try
+        {
+            var genresTask = Http.GetFromJsonAsync<List<Genre>>("api/Genre");
+            var authorsTask = Http.GetFromJsonAsync<List<Author>>("api/Author");
+
+            await Task.WhenAll(genresTask!, authorsTask!);
+
+            genres = genresTask?.Result ?? new List<Genre>();
+            authors = authorsTask?.Result ?? new List<Author>();
+
+            foreach (var genre in genres)
+            {
+                selectedGenres[genre.GenreId] = false;
+            }
+        }
+        catch
+        {
+            genres = new List<Genre>();
+            authors = new List<Author>();
+        }
+    }
+
+    private async Task LoadBooks(bool append = false)
+    {
+        try
+        {
+            if (!append)
+            {
+                isLoading = true;
+                currentPage = 1;
+                books.Clear();
+            }
+            else
+            {
+                isLoadingMore = true;
+            }
+
+            var selectedGenreIds = selectedGenres.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+
+            var realBooks = await Http.GetFromJsonAsync<List<Book>>("api/Books") ?? new List<Book>();
+
+            var newBooks = realBooks.Select(book =>
+            {
+                var imageUrl = book.GetType().GetProperty("ImageUrl")?.GetValue(book)?.ToString();
+
+                return new BookDiscover
+                {
+                    BookId = book.BookId,
+                    Title = book.Title,
+                    AuthorId = book.AuthorId,
+                    GenreId = book.GenreId,
+                    PublishYear = book.PublishYear,
+                    Description = book.Description ?? string.Empty,
+                    CoverImageUrl = imageUrl,
+                    AverageRating = 4.0 + (book.BookId % 10) * 0.1,
+                    ReviewCount = 50 + (book.BookId * 7) % 200
+                };
+            }).ToList();
+
+            if (!string.IsNullOrWhiteSpace(searchQuery))
+            {
+                newBooks = newBooks.Where(b => b.Title.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+
+            if (selectedGenreIds.Any())
+            {
+                newBooks = newBooks.Where(b => selectedGenreIds.Contains(b.GenreId)).ToList();
+            }
+
+            if (MinRating > 0)
+            {
+                newBooks = newBooks.Where(b => b.AverageRating >= MinRating).ToList();
+            }
+
+            newBooks = SortOption switch
+            {
+                "newest" => newBooks.OrderByDescending(b => b.PublishYear).ToList(),
+                "rating" => newBooks.OrderByDescending(b => b.AverageRating).ToList(),
+                "title" => newBooks.OrderBy(b => b.Title).ToList(),
+                _ => newBooks.OrderByDescending(b => b.AverageRating * b.ReviewCount).ToList()
+            };
+
+            var skip = (currentPage - 1) * PageSize;
+            newBooks = newBooks.Skip(skip).Take(PageSize).ToList();
+
+            if (append)
+            {
+                books.AddRange(newBooks);
+            }
+            else
+            {
+                books = newBooks;
+            }
+
+            hasMoreBooks = newBooks.Count == PageSize;
+            currentPage++;
+        }
+        catch
+        {
+            // swallow for UI; could log to console if needed
+        }
+        finally
+        {
+            isLoading = false;
+            isLoadingMore = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnGenreToggled(int genreId, ChangeEventArgs e)
+    {
+        var isChecked = e.Value is bool b && b;
+        selectedGenres[genreId] = isChecked;
+        _ = LoadBooks();
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? string.Empty;
+        DebounceLoad();
+    }
+
+    private void DebounceLoad()
+    {
+        _debounceTimer?.Stop();
+        _debounceTimer?.Dispose();
+
+        _debounceTimer = new System.Timers.Timer(250);
+        _debounceTimer.Elapsed += async (_, __) =>
+        {
+            _debounceTimer?.Stop();
+            await InvokeAsync(async () => await LoadBooks());
+        };
+        _debounceTimer.AutoReset = false;
+        _debounceTimer.Start();
+    }
+
+    private async Task LoadMoreBooks() => await LoadBooks(append: true);
+
+    private async Task ApplyFilters() => await LoadBooks();
+
+    private async Task HandleAddToList(BookDiscover book)
+    {
+        // Hook into reading list logic here if needed
+        await Task.CompletedTask;
+    }
+
+    private string GetAuthorName(int? authorId) => authorId.HasValue
+        ? authors.FirstOrDefault(a => a.AuthorId == authorId.Value)?.Name ?? "Unknown"
+        : "Unknown";
+
+    private string GetGenreName(int? genreId) => genreId.HasValue
+        ? genres.FirstOrDefault(g => g.GenreId == genreId.Value)?.GenreName ?? "Unknown"
+        : "Unknown";
+
+    private static string Truncate(string value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        return value.Length <= maxLength ? value : value.Substring(0, maxLength).TrimEnd() + "…";
+    }
+}

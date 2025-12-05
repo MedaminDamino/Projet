@@ -1,0 +1,66 @@
+﻿<div class="sidebar-header">
+    <a href="" class="sidebar-brand">
+        <span class="brand-icon">📚</span>
+        <span class="brand-text">BookDashboard</span>
+    </a>
+</div>
+
+<nav class="sidebar-nav">
+    <AuthorizeView>
+        <Authorized>
+            <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-text">Home</span>
+            </NavLink>
+
+            <NavLink class="nav-item" href="books">
+                <span class="nav-icon">📖</span>
+                <span class="nav-text">Books</span>
+            </NavLink>
+
+            <NavLink class="nav-item" href="authors">
+                <span class="nav-icon">✍️</span>
+                <span class="nav-text">Authors</span>
+            </NavLink>
+
+            <NavLink class="nav-item" href="genres">
+                <span class="nav-icon">🏷️</span>
+                <span class="nav-text">Genres</span>
+            </NavLink>
+
+            <NavLink class="nav-item" href="reviews">
+                <span class="nav-icon">⭐</span>
+                <span class="nav-text">Reviews</span>
+            </NavLink>
+
+            <NavLink class="nav-item" href="comments">
+                <span class="nav-icon">💬</span>
+                <span class="nav-text">Comments</span>
+            </NavLink>
+
+            <NavLink class="nav-item" href="goals">
+                <span class="nav-icon">🎯</span>
+                <span class="nav-text">Goals</span>
+            </NavLink>
+
+            <NavLink class="nav-item" href="readinglist">
+                <span class="nav-icon">📋</span>
+                <span class="nav-text">Reading List</span>
+            </NavLink>
+        </Authorized>
+        <NotAuthorized>
+            <NavLink class="nav-item" href="login">
+                <span class="nav-icon">🔐</span>
+                <span class="nav-text">Login</span>
+            </NavLink>
+        </NotAuthorized>
+    </AuthorizeView>
+</nav>
+
+<div class="sidebar-footer">
+    <div class="sidebar-version">v1.0.0</div>
+</div>
+
+@code {
+    // Removed toggle functionality - will be handled by CSS media queries
+}

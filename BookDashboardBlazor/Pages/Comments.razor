@@ -1,0 +1,168 @@
+@page "/comments"
+@using BookDashboardBlazor.Models
+@inject HttpClient Http
+@attribute [Authorize]
+
+<h3>Comments</h3>
+
+<button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add Comment</button>
+
+<GenericTable Items="comments" OnEdit="OpenEditModal" OnDelete="DeleteComment">
+    <TableHeader>
+        <th>ID</th>
+        <th>Review ID</th>
+        <th>Text</th>
+        <th>Created At</th>
+    </TableHeader>
+    <RowTemplate Context="comment">
+        <td>@comment.CommentID</td>
+        <td>@comment.ReviewID</td>
+        <td>@comment.CommentText</td>
+        <td>@comment.CreatedAt.ToShortDateString()</td>
+    </RowTemplate>
+</GenericTable>
+
+<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal">
+    <EditForm Model="@currentComment" OnValidSubmit="SaveComment">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label>Review ID</label>
+            <InputSelect @bind-Value="currentComment.ReviewID" class="form-select">
+                <option value="0">Select Review</option>
+                @foreach (var review in reviews)
+                {
+                    <option value="@review.ReviewID">Review #@review.ReviewID - @(string.IsNullOrEmpty(review.ReviewText) ? "No text" : (review.ReviewText.Length > 20 ? review.ReviewText.Substring(0, 20) + "..." : review.ReviewText))</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="mb-3">
+            <label>Comment Text</label>
+            <InputTextArea @bind-Value="currentComment.CommentText" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+</Modal>
+
+@code {
+    private List<Comment> comments = new();
+    private List<Review> reviews = new();
+    private Comment currentComment = new();
+    private bool showModal = false;
+    private string modalTitle = "Add Comment";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var commentResponse = await Http.GetAsync("api/Comment");
+            var reviewResponse = await Http.GetAsync("api/Review");
+
+            if (commentResponse.IsSuccessStatusCode)
+            {
+                comments = await commentResponse.Content.ReadFromJsonAsync<List<Comment>>() ?? new List<Comment>();
+            }
+            else
+            {
+                comments = new List<Comment>();
+                Console.WriteLine($"Error loading comments: {commentResponse.StatusCode}");
+            }
+
+            if (reviewResponse.IsSuccessStatusCode)
+            {
+                reviews = await reviewResponse.Content.ReadFromJsonAsync<List<Review>>() ?? new List<Review>();
+            }
+            else
+            {
+                reviews = new List<Review>();
+                Console.WriteLine($"Error loading reviews: {reviewResponse.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            comments = new List<Comment>();
+            reviews = new List<Review>();
+            Console.WriteLine($"Exception loading data: {ex.Message}");
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        currentComment = new Comment { CreatedAt = DateTime.Now };
+        modalTitle = "Add Comment";
+        showModal = true;
+    }
+
+    private void OpenEditModal(Comment comment)
+    {
+        currentComment = new Comment
+        {
+            CommentID = comment.CommentID,
+            ReviewID = comment.ReviewID,
+            CommentText = comment.CommentText,
+            CreatedAt = comment.CreatedAt,
+            AppUserID = comment.AppUserID
+        };
+        modalTitle = "Edit Comment";
+        showModal = true;
+    }
+
+    private void CloseModal() => showModal = false;
+
+    private async Task SaveComment()
+    {
+        try
+        {
+            if (currentComment.CommentID == 0)
+            {
+                var response = await Http.PostAsJsonAsync("api/Comment", currentComment);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"Error creating comment: {response.StatusCode}");
+                    return;
+                }
+            }
+            else
+            {
+                var response = await Http.PutAsJsonAsync($"api/Comment/{currentComment.CommentID}", currentComment);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"Error updating comment: {response.StatusCode}");
+                    return;
+                }
+            }
+            showModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception saving comment: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteComment(Comment comment)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"api/Comment/{comment.CommentID}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadData();
+            }
+            else
+            {
+                Console.WriteLine($"Error deleting comment: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception deleting comment: {ex.Message}");
+        }
+    }
+}

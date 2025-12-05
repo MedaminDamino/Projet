@@ -1,0 +1,68 @@
+@typeparam TItem
+
+@* <input type="text" class="form-control mb-3"
+       placeholder="Search..."
+       @bind="searchTerm" @bind:event="oninput" /> *@
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                @TableHeader
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (FilteredItems?.Any() != true)
+            {
+                <tr><td colspan="100%">No data available</td></tr>
+            }
+            else
+            {
+                @foreach (var item in FilteredItems!)
+                {
+                    <tr>
+                        @RowTemplate(item)
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => OnEdit?.Invoke(item)">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="async () => { if (OnDelete != null) await OnDelete(item); }">Delete</button>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private string searchTerm = "";
+
+    private IEnumerable<TItem> FilteredItems =>
+        string.IsNullOrWhiteSpace(searchTerm)
+            ? Items
+            : Items.Where(item =>
+                item?.ToString()?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true);
+
+    [Parameter] public IEnumerable<TItem> Items { get; set; } = new List<TItem>();
+    [Parameter] public RenderFragment TableHeader { get; set; } = null!;
+    [Parameter] public RenderFragment<TItem> RowTemplate { get; set; } = null!;
+    [Parameter] public Action<TItem>? OnEdit { get; set; }
+    [Parameter] public Func<TItem, Task>? OnDelete { get; set; }
+}
+@* <style>
+.search-box {
+    max-width: 300px;
+}
+
+.search-box input {
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    transition: all 0.2s ease-in-out;
+}
+
+.search-box input:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 4px rgba(13, 110, 253, 0.3);
+}
+</style> *@

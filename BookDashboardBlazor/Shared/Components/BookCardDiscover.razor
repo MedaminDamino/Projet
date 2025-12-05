@@ -1,0 +1,284 @@
+@using BookDashboardBlazor.Models
+@using BookDashboardBlazor.Services
+@inject ReadingListService ReadingListService
+@inject NavigationManager NavigationManager
+
+<style>
+    /* ==================== COLOR PALETTE ==================== */
+    :root {
+        --primary: #6366f1;
+        --primary-light: #818cf8;
+        --primary-dark: #4f46e5;
+        --accent: #f59e0b;
+        --surface: #f8fafc;
+        --surface-hover: #f1f5f9;
+        --border: #e2e8f0;
+        --text-primary: #1e293b;
+        --text-secondary: #64748b;
+        --text-tertiary: #94a3b8;
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+        --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.1);
+        --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.12);
+    }
+
+    /* ==================== BOOK CARD COMPONENT ==================== */
+    .modern-book-card {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: var(--shadow-md);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    .modern-book-card:hover {
+        transform: translateY(-12px);
+        box-shadow: var(--shadow-xl);
+    }
+
+    .modern-book-card:active {
+        transform: translateY(-6px);
+    }
+
+    /* Book Card Header */
+    .book-card-header {
+        position: relative;
+        width: 100%;
+        padding-bottom: 140%;
+        background: var(--surface);
+        overflow: hidden;
+    }
+
+    .book-card-header img,
+    .book-cover-placeholder {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .book-cover-image {
+        transition: transform 0.4s ease;
+    }
+
+    .modern-book-card:hover .book-cover-image {
+        transform: scale(1.08);
+    }
+
+    .book-cover-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        color: var(--text-tertiary);
+        font-size: 3.5rem;
+    }
+
+    /* Genre Overlay */
+    .book-genre-overlay {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        z-index: 10;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.3s ease;
+    }
+
+    .modern-book-card:hover .book-genre-overlay {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .genre-tag {
+        display: inline-block;
+        background: rgba(99, 102, 241, 0.95);
+        color: white;
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        backdrop-filter: blur(10px);
+    }
+
+    /* Book Card Content */
+    .book-card-content {
+        flex: 1;
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .book-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+        line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        min-height: 2.8rem;
+    }
+
+    .book-author {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .book-author:hover {
+        color: var(--primary);
+        transform: translateX(4px);
+    }
+
+    .book-author i {
+        font-size: 0.9rem;
+    }
+
+    /* Rating Section */
+    .book-rating-section {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+        font-size: 0.85rem;
+    }
+
+    .review-count {
+        color: var(--text-tertiary);
+        font-size: 0.8rem;
+    }
+
+    /* Add Button */
+    .modern-add-btn {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-md);
+    }
+
+    .modern-add-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+        background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+    }
+
+    .modern-add-btn:active {
+        transform: translateY(0);
+        box-shadow: var(--shadow-md);
+    }
+
+    .modern-add-btn i {
+        font-size: 1rem;
+    }
+
+    /* ==================== STAR RATING COMPONENT ==================== */
+    .star-rating {
+        display: flex;
+        gap: 0.25rem;
+        align-items: center;
+    }
+
+    .star {
+        font-size: 0.9rem;
+        color: var(--accent);
+        transition: all 0.2s ease;
+    }
+
+    .star.empty {
+        color: var(--border);
+    }
+</style>
+
+<div class="modern-book-card" @onclick="NavigateToBookDetails">
+    <div class="book-card-header">
+        @if (!string.IsNullOrEmpty(Book.CoverImageUrl))
+        {
+            <img src="@Book.CoverImageUrl" alt="@Book.Title cover" class="book-cover-image" />
+        }
+        else
+        {
+            <div class="book-cover-placeholder">
+                <i class="bi bi-book-fill"></i>
+            </div>
+        }
+        <div class="book-genre-overlay">
+            <span class="genre-tag">@GenreName</span>
+        </div>
+    </div>
+
+    <div class="book-card-content">
+        <h5 class="book-title" title="@Book.Title">@Book.Title</h5>
+        
+        <p class="book-author" @onclick="NavigateToAuthor" @onclick:stopPropagation>
+            <i class="bi bi-person-circle"></i> @AuthorName
+        </p>
+
+        <div class="book-rating-section">
+            <StarRating Rating="@Book.AverageRating" IsReadOnly="true" />
+            <span class="review-count">@Book.ReviewCount reviews</span>
+        </div>
+
+        <button class="modern-add-btn" @onclick="AddToReadingList" @onclick:stopPropagation>
+            <i class="bi bi-bookmark-plus"></i>
+            <span>Add to Reading List</span>
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public BookDiscover Book { get; set; } = new();
+    [Parameter] public string AuthorName { get; set; } = "Unknown";
+    [Parameter] public string GenreName { get; set; } = "Unknown";
+    [Parameter] public EventCallback<BookDiscover> OnAddToList { get; set; }
+
+    private async Task AddToReadingList()
+    {
+        try
+        {
+            await ReadingListService.AddToReadingListAsync(Book.BookId);
+            await OnAddToList.InvokeAsync(Book);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error adding to reading list: {ex.Message}");
+        }
+    }
+
+    private void NavigateToBookDetails()
+    {
+        NavigationManager.NavigateTo($"/book/{Book.BookId}");
+    }
+
+    private void NavigateToAuthor()
+    {
+        NavigationManager.NavigateTo($"/author/{Book.AuthorId}");
+    }
+}

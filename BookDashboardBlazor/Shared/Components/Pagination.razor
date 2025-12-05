@@ -1,0 +1,156 @@
+@using BookDashboardBlazor.Models
+
+<div class="pagination-container">
+    <div class="pagination-wrapper">
+        <!-- Page Size Selector -->
+        <div class="page-size-selector">
+            <label class="page-size-label">Items per page:</label>
+            <select class="page-size-select" value="@PageSize" @onchange="HandlePageSizeChanged">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+
+        <!-- Page Info -->
+        <div class="page-info">
+            Showing @(StartIndex + 1) to @EndIndex of @TotalItems
+        </div>
+
+        <!-- Pagination Controls -->
+        <nav class="pagination-nav" aria-label="Page navigation">
+            <ul class="pagination">
+                <!-- Previous Button -->
+                <li class="page-item @(CurrentPage <= 1 ? "disabled" : "")">
+                    <button class="page-link" 
+                            @onclick="() => GoToPage(CurrentPage - 1)"
+                            disabled="@(CurrentPage <= 1)"
+                            aria-label="Previous">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                        </svg>
+                        <span class="d-none d-sm-inline">Previous</span>
+                    </button>
+                </li>
+
+                @foreach (var pageNum in VisiblePages)
+                {
+                    @if (pageNum == -1)
+                    {
+                        <!-- Ellipsis -->
+                        <li class="page-item disabled">
+                            <span class="page-link ellipsis">...</span>
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="page-item @(pageNum == CurrentPage ? "active" : "")">
+                            <button class="page-link" @onclick="() => GoToPage(pageNum)">
+                                @pageNum
+                            </button>
+                        </li>
+                    }
+                }
+
+                <!-- Next Button -->
+                <li class="page-item @(CurrentPage >= TotalPages ? "disabled" : "")">
+                    <button class="page-link" 
+                            @onclick="() => GoToPage(CurrentPage + 1)"
+                            disabled="@(CurrentPage >= TotalPages)"
+                            aria-label="Next">
+                        <span class="d-none d-sm-inline">Next</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                        </svg>
+                    </button>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int TotalItems { get; set; }
+    [Parameter] public int PageSize { get; set; } = 10;
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+    [Parameter] public EventCallback<int> OnPageSizeChanged { get; set; }
+
+    private int TotalPages => PageSize > 0 ? (int)Math.Ceiling((double)TotalItems / PageSize) : 0;
+    private int StartIndex => TotalItems == 0 || PageSize == 0 ? 0 : (CurrentPage - 1) * PageSize;
+    private int EndIndex => PageSize == 0 ? 0 : Math.Min(StartIndex + PageSize, TotalItems);
+
+    private List<int> VisiblePages
+    {
+        get
+        {
+            var pages = new List<int>();
+            var maxVisible = 5; // Show max 5 page numbers
+
+            if (TotalPages <= maxVisible)
+            {
+                // Show all pages if total is less than max visible
+                for (int i = 1; i <= TotalPages; i++)
+                {
+                    pages.Add(i);
+                }
+            }
+            else
+            {
+                // Always show first page
+                pages.Add(1);
+
+                // Calculate start and end of middle pages
+                int start = Math.Max(2, CurrentPage - 1);
+                int end = Math.Min(TotalPages - 1, CurrentPage + 1);
+
+                // Add ellipsis if needed before middle pages
+                if (start > 2)
+                {
+                    pages.Add(-1); // -1 represents ellipsis
+                }
+
+                // Add middle pages
+                for (int i = start; i <= end; i++)
+                {
+                    pages.Add(i);
+                }
+
+                // Add ellipsis if needed after middle pages
+                if (end < TotalPages - 1)
+                {
+                    pages.Add(-1); // -1 represents ellipsis
+                }
+
+                // Always show last page
+                if (TotalPages > 1)
+                {
+                    pages.Add(TotalPages);
+                }
+            }
+
+            return pages;
+        }
+    }
+
+    private async Task GoToPage(int page)
+    {
+        if (page >= 1 && page <= TotalPages && page != CurrentPage)
+        {
+            CurrentPage = page;
+            await OnPageChanged.InvokeAsync(page);
+        }
+    }
+
+    private async Task HandlePageSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int newPageSize) && newPageSize > 0)
+        {
+            PageSize = newPageSize;
+            CurrentPage = 1; // Reset to first page when changing page size
+            await OnPageSizeChanged.InvokeAsync(newPageSize);
+        }
+    }
+}
+

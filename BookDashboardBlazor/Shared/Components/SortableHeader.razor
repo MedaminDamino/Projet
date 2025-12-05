@@ -1,0 +1,66 @@
+@using BookDashboardBlazor.Models
+
+<th class="sortable-header" @onclick="ToggleSort" style="cursor: pointer; user-select: none;">
+    <div class="sortable-header-content">
+        <span>@Label</span>
+        <div class="sort-icons">
+            @if (CurrentSortBy == SortBy)
+            {
+                @if (CurrentSortDirection == SortDirection.Ascending)
+                {
+                    <svg class="sort-icon active" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M3.5 12.5a.5.5 0 0 1-1 0V3.707L1.354 4.854a.5.5 0 1 1-.708-.708l2-1.999.007-.007a.498.498 0 0 1 .708.006l2 2a.5.5 0 1 1-.707.708L3.5 3.707V12.5zm3.5-9a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zM7.5 6a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zm0 3a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+                    </svg>
+                }
+                else if (CurrentSortDirection == SortDirection.Descending)
+                {
+                    <svg class="sort-icon active" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M3.5 3.5a.5.5 0 0 0-1 0v8.793l-1.146-1.147a.5.5 0 0 0-.708.708l2 1.999.007.007a.497.497 0 0 0 .708-.006l2-2a.5.5 0 0 0-.707-.708L3.5 12.293V3.5zm3.5 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zM7.5 6a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 2a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+                    </svg>
+                }
+            }
+            else
+            {
+                <svg class="sort-icon inactive" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M3.5 3.5a.5.5 0 0 0-1 0v8.793l-1.146-1.147a.5.5 0 0 0-.708.708l2 1.999.007.007a.497.497 0 0 0 .708-.006l2-2a.5.5 0 0 0-.707-.708L3.5 12.293V3.5zm3.5 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zM7.5 6a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 2a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z" opacity="0.3"/>
+                </svg>
+            }
+        </div>
+    </div>
+</th>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string SortBy { get; set; } = "";
+    [Parameter] public string? CurrentSortBy { get; set; }
+    [Parameter] public SortDirection CurrentSortDirection { get; set; }
+    [Parameter] public EventCallback<(string SortBy, SortDirection Direction)> OnSortChanged { get; set; }
+
+    private async Task ToggleSort()
+    {
+        try
+        {
+            SortDirection newDirection;
+
+            if (string.IsNullOrEmpty(CurrentSortBy) || CurrentSortBy != SortBy)
+            {
+                // First click: sort ascending
+                newDirection = SortDirection.Ascending;
+            }
+            else
+            {
+                // Toggle: Ascending -> Descending -> Ascending
+                newDirection = CurrentSortDirection == SortDirection.Ascending
+                    ? SortDirection.Descending
+                    : SortDirection.Ascending;
+            }
+
+            await OnSortChanged.InvokeAsync((SortBy, newDirection));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in ToggleSort: {ex.Message}");
+        }
+    }
+}
+

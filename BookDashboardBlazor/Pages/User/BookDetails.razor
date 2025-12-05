@@ -1,0 +1,153 @@
+@page "/user/book/{BookId:int}"
+@layout UserLayout
+@using BookDashboardBlazor.Models
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+@if (book == null)
+{
+    <p>Loading book details...</p>
+}
+else
+{
+    <div class="container">
+        <button class="btn btn-outline-secondary mb-3" @onclick="GoBack">
+            <i class="bi bi-arrow-left"></i> Back
+        </button>
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body text-center">
+                        <h1 class="display-1 text-secondary"><i class="bi bi-book"></i></h1>
+                        <h5 class="card-title mt-3">@book.Title</h5>
+                        <p class="text-muted">@author?.Name</p>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2 mt-3">
+                    <div class="dropdown">
+                        <button class="btn btn-primary dropdown-toggle w-100" type="button" id="readingStatusDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            @(currentStatus ?? "Add to Library")
+                        </button>
+                        <ul class="dropdown-menu w-100" aria-labelledby="readingStatusDropdown">
+                            <li><button class="dropdown-item" @onclick='() => UpdateStatus("Want to Read")'>Want to Read</button></li>
+                            <li><button class="dropdown-item" @onclick='() => UpdateStatus("Reading")'>Reading</button></li>
+                            <li><button class="dropdown-item" @onclick='() => UpdateStatus("Completed")'>Completed</button></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <h3>Description</h3>
+                <p class="lead">@book.Description</p>
+                
+                <hr />
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Genre:</strong> @genre?.GenreName
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Published:</strong> @book.PublishYear
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Author Bio</h5>
+                        <p class="card-text">@author?.Bio</p>
+                    </div>
+                </div>
+
+                <h3>Reviews & Ratings</h3>
+                <div class="mb-4 p-3 bg-light rounded">
+                    <h5>Rate this book</h5>
+                    <StarRating Value="userRating" ValueChanged="SubmitRating" />
+                </div>
+
+                @if (reviews == null)
+                {
+                    <p>Loading reviews...</p>
+                }
+                else if (!reviews.Any())
+                {
+                    <p class="text-muted">No reviews yet. Be the first to review!</p>
+                }
+                else
+                {
+                    <div class="list-group">
+                        @foreach (var review in reviews)
+                        {
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">User Review</h5>
+                                    <small>@review.Rating / 5 stars</small>
+                                </div>
+                                <p class="mb-1">@review.ReviewText</p>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int BookId { get; set; }
+
+    private Book? book;
+    private Author? author;
+    private Genre? genre;
+    private List<Review>? reviews;
+
+    private string? currentStatus;
+    private int userRating = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            book = await Http.GetFromJsonAsync<Book>($"api/Books/{BookId}");
+            if (book != null)
+            {
+                var t1 = Http.GetFromJsonAsync<Author>($"api/Author/{book.AuthorId}");
+                var t2 = Http.GetFromJsonAsync<Genre>($"api/Genre/{book.GenreId}");
+                var t3 = Http.GetFromJsonAsync<List<Review>>("api/Review"); // In real app, filter by BookId
+
+                await Task.WhenAll(t1, t2, t3);
+
+                author = await t1;
+                genre = await t2;
+                var allReviews = await t3 ?? new List<Review>();
+                reviews = allReviews.Where(r => r.BookId == BookId).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading book details: {ex.Message}");
+        }
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("user/browse");
+    }
+
+    private async Task UpdateStatus(string status)
+    {
+        currentStatus = status;
+        // In a real app, call API to save status
+        await Task.CompletedTask; 
+    }
+
+    private async Task SubmitRating(int rating)
+    {
+        userRating = rating;
+        // In a real app, call API to save rating
+        await Task.CompletedTask;
+    }
+}

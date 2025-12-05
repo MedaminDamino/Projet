@@ -1,0 +1,140 @@
+@page "/genres"
+@using BookDashboardBlazor.Models
+@inject HttpClient Http
+@attribute [Authorize]
+
+<h3>Genres</h3>
+
+<button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add Genre</button>
+
+<GenericTable Items="genres" OnEdit="OpenEditModal" OnDelete="DeleteGenre">
+    <TableHeader>
+        <th>ID</th>
+        <th>Name</th>
+    </TableHeader>
+    <RowTemplate Context="genre">
+        <td>@genre.GenreId</td>
+        <td>@genre.GenreName</td>
+    </RowTemplate>
+</GenericTable>
+
+<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal">
+    <EditForm Model="@currentGenre" OnValidSubmit="SaveGenre">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label>Name</label>
+            <InputText @bind-Value="currentGenre.GenreName" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+</Modal>
+
+@code {
+    private List<Genre> genres = new();
+    private Genre currentGenre = new();
+    private bool showModal = false;
+    private string modalTitle = "Add Genre";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGenres();
+    }
+
+    private async Task LoadGenres()
+    {
+        try
+        {
+            var response = await Http.GetAsync("api/Genre");
+            if (response.IsSuccessStatusCode)
+            {
+                genres = await response.Content.ReadFromJsonAsync<List<Genre>>() ?? new List<Genre>();
+            }
+            else
+            {
+                genres = new List<Genre>();
+                Console.WriteLine($"Error loading genres: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            genres = new List<Genre>();
+            Console.WriteLine($"Exception loading genres: {ex.Message}");
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        currentGenre = new Genre();
+        modalTitle = "Add Genre";
+        showModal = true;
+    }
+
+    private void OpenEditModal(Genre genre)
+    {
+        currentGenre = new Genre
+        {
+            GenreId = genre.GenreId,
+            GenreName = genre.GenreName
+        };
+        modalTitle = "Edit Genre";
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+    private async Task SaveGenre()
+    {
+        try
+        {
+            if (currentGenre.GenreId == 0)
+            {
+                var response = await Http.PostAsJsonAsync("api/Genre", currentGenre);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"Error creating genre: {response.StatusCode}");
+                    return;
+                }
+            }
+            else
+            {
+                var response = await Http.PutAsJsonAsync($"api/Genre/{currentGenre.GenreId}", currentGenre);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"Error updating genre: {response.StatusCode}");
+                    return;
+                }
+            }
+            showModal = false;
+            await LoadGenres();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception saving genre: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteGenre(Genre genre)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"api/Genre/{genre.GenreId}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadGenres();
+            }
+            else
+            {
+                Console.WriteLine($"Error deleting genre: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception deleting genre: {ex.Message}");
+        }
+    }
+}

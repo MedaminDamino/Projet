@@ -1,0 +1,285 @@
+/* ============================================
+   PAGINATION & TABLE ENHANCEMENTS
+   Modern light mode styling for tables and pagination
+   ============================================ */
+
+/* ============================================
+   MODERN TABLE WRAPPER
+   ============================================ */
+
+.modern-table {
+    background-color: var(--color-bg-primary, #ffffff);
+    border-radius: var(--radius-lg, 0.75rem);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm, 0 1px 3px 0 rgba(0, 0, 0, 0.1));
+    border: 1px solid var(--color-border-medium, #e5e7eb);
+}
+
+.modern-table table {
+    margin: 0;
+    width: 100%;
+}
+
+.modern-table thead {
+    background-color: var(--color-bg-secondary, #f9fafb);
+}
+
+.modern-table thead th {
+    padding: 1rem 1.25rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-secondary, #6b7280);
+    border-bottom: 1px solid var(--color-border-medium, #e5e7eb);
+}
+
+.modern-table tbody tr {
+    transition: background-color 0.15s ease;
+    border-bottom: 1px solid var(--color-border-light, #f3f4f6);
+}
+
+.modern-table tbody tr:hover {
+    background-color: var(--color-bg-hover, #f5f5f7);
+}
+
+.modern-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.modern-table tbody td {
+    padding: 1rem 1.25rem;
+    vertical-align: middle;
+    color: var(--color-text-primary, #111827);
+    font-size: 0.9375rem;
+}
+
+/* ============================================
+   PAGINATION CONTROLS
+   ============================================ */
+
+.pagination-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.5rem;
+    background-color: var(--color-bg-primary, #ffffff);
+    border-top: 1px solid var(--color-border-light, #f3f4f6);
+    border-radius: 0 0 var(--radius-lg, 0.75rem) var(--radius-lg, 0.75rem);
+}
+
+.pagination-info {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary, #6b7280);
+}
+
+.pagination-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.pagination-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.25rem;
+    height: 2.25rem;
+    padding: 0 0.625rem;
+    border: 1px solid var(--color-border-medium, #e5e7eb);
+    border-radius: var(--radius-md, 0.5rem);
+    background-color: var(--color-bg-primary, #ffffff);
+    color: var(--color-text-secondary, #6b7280);
+    font-weight: 500;
+    font-size: 0.875rem;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.pagination-button:hover:not(:disabled) {
+    background-color: var(--color-bg-hover, #f5f5f7);
+    border-color: var(--color-border-dark, #d1d5db);
+    color: var(--color-text-primary, #111827);
+}
+
+.pagination-button.active {
+    background-color: var(--color-primary, #6366f1);
+    border-color: var(--color-primary, #6366f1);
+    color: white;
+    font-weight: 600;
+}
+
+.pagination-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ============================================
+   TABLE SORTING
+   ============================================ */
+
+.sortable-header {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 1.5rem !important;
+}
+
+.sortable-header:hover {
+    color: var(--color-text-primary, #111827);
+}
+
+.sortable-header::after {
+    content: '↕';
+    position: absolute;
+    right: 0.5rem;
+    opacity: 0.3;
+    font-size: 0.875rem;
+}
+
+.sortable-header.sort-asc::after {
+    content: '↑';
+    opacity: 1;
+    color: var(--color-primary, #6366f1);
+}
+
+.sortable-header.sort-desc::after {
+    content: '↓';
+    opacity: 1;
+    color: var(--color-primary, #6366f1);
+}
+
+/* ============================================
+   TABLE ACTIONS
+   ============================================ */
+
+.table-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.table-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-md, 0.5rem);
+    border: 1px solid var(--color-border-medium, #e5e7eb);
+    background-color: var(--color-bg-primary, #ffffff);
+    color: var(--color-text-secondary, #6b7280);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+
+.table-action-btn:hover {
+    background-color: var(--color-bg-hover, #f5f5f7);
+    color: var(--color-text-primary, #111827);
+    border-color: var(--color-border-dark, #d1d5db);
+}
+
+.table-action-btn.edit:hover {
+    background-color: var(--color-info-light, #dbeafe);
+    color: var(--color-info, #3b82f6);
+    border-color: var(--color-info, #3b82f6);
+}
+
+.table-action-btn.delete:hover {
+    background-color: var(--color-error-light, #fee2e2);
+    color: var(--color-error, #ef4444);
+    border-color: var(--color-error, #ef4444);
+}
+
+/* ============================================
+   EMPTY STATE
+   ============================================ */
+
+.table-empty {
+    padding: 3rem 1.5rem;
+    text-align: center;
+    color: var(--color-text-tertiary, #9ca3af);
+}
+
+.table-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.table-empty-text {
+    font-size: 1rem;
+    color: var(--color-text-secondary, #6b7280);
+}
+
+/* ============================================
+   LOADING STATE
+   ============================================ */
+
+.table-loading {
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+
+.table-spinner {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid var(--color-border-medium, #e5e7eb);
+    border-top-color: var(--color-primary, #6366f1);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ============================================
+   RESPONSIVE TABLE
+   ============================================ */
+
+@media (max-width: 768px) {
+    .modern-table {
+        overflow-x: auto;
+    }
+
+    .pagination-container {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+
+    .pagination-controls {
+        justify-content: center;
+    }
+
+    .pagination-info {
+        text-align: center;
+    }
+
+    .table-actions {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .modern-table thead th,
+    .modern-table tbody td {
+        padding: 0.75rem 0.875rem;
+        font-size: 0.875rem;
+    }
+
+    .pagination-button {
+        min-width: 2rem;
+        height: 2rem;
+        font-size: 0.8125rem;
+    }
+}

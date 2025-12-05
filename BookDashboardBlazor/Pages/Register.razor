@@ -1,0 +1,54 @@
+@page "/register"
+@using BookDashboardBlazor.Models
+@using BookDashboardBlazor.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<div class="d-flex justify-content-center align-items-center vh-100">
+    <div class="card p-4" style="width: 400px;">
+        <h3 class="text-center mb-4">Register</h3>
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+        <EditForm Model="@registerModel" OnValidSubmit="HandleRegister">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="mb-3">
+                <label>Username</label>
+                <InputText @bind-Value="registerModel.Username" class="form-control" />
+            </div>
+            <div class="mb-3">
+                <label>Email</label>
+                <InputText @bind-Value="registerModel.Email" class="form-control" />
+            </div>
+            <div class="mb-3">
+                <label>Password</label>
+                <InputText @bind-Value="registerModel.Password" type="password" class="form-control" />
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Register</button>
+        </EditForm>
+        <div class="text-center mt-3">
+            <a href="login">Already have an account? Login</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterModel registerModel = new();
+    private string errorMessage = string.Empty;
+
+    private async Task HandleRegister()
+    {
+        var result = await AuthService.Register(registerModel);
+        if (result)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            errorMessage = "Registration failed";
+        }
+    }
+}

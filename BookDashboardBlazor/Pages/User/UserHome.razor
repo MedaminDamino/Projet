@@ -1,0 +1,92 @@
+@page "/user/home"
+@layout UserLayout
+@using BookDashboardBlazor.Models
+@inject HttpClient Http
+@attribute [Authorize]
+
+<h3>Welcome back!</h3>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-header">Books Read</div>
+            <div class="card-body">
+                <h5 class="card-title display-4">12</h5>
+                <p class="card-text">Keep up the great work!</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-header">Currently Reading</div>
+            <div class="card-body">
+                <h5 class="card-title display-4">2</h5>
+                <p class="card-text">Enjoy your reading time.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-info mb-3">
+            <div class="card-header">Want to Read</div>
+            <div class="card-body">
+                <h5 class="card-title display-4">5</h5>
+                <p class="card-text">So many books, so little time.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h4>Recommended for You</h4>
+<div class="row row-cols-1 row-cols-md-3 g-4">
+    @if (recommendedBooks == null)
+    {
+        <p>Loading recommendations...</p>
+    }
+    else
+    {
+        @foreach (var book in recommendedBooks)
+        {
+            <div class="col">
+                <BookCard Book="book" AuthorName="@GetAuthorName(book.AuthorId)" GenreName="@GetGenreName(book.GenreId)" />
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<Book>? recommendedBooks;
+    private List<Author> authors = new();
+    private List<Genre> genres = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var t1 = Http.GetFromJsonAsync<List<Book>>("api/Books");
+            var t2 = Http.GetFromJsonAsync<List<Author>>("api/Author");
+            var t3 = Http.GetFromJsonAsync<List<Genre>>("api/Genre");
+
+            await Task.WhenAll(t1, t2, t3);
+
+            var allBooks = await t1 ?? new List<Book>();
+            authors = await t2 ?? new List<Author>();
+            genres = await t3 ?? new List<Genre>();
+
+            // Simple recommendation: just take first 3 books
+            recommendedBooks = allBooks.Take(3).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading dashboard: {ex.Message}");
+            recommendedBooks = new List<Book>();
+        }
+    }
+
+    private string GetAuthorName(int? id) => id.HasValue
+        ? authors.FirstOrDefault(a => a.AuthorId == id.Value)?.Name ?? "Unknown"
+        : "Unknown";
+
+    private string GetGenreName(int? id) => id.HasValue
+        ? genres.FirstOrDefault(g => g.GenreId == id.Value)?.GenreName ?? "Unknown"
+        : "Unknown";
+}

@@ -1,0 +1,23 @@
+@using BookDashboardBlazor.Models
+
+<div class="card h-100 shadow-sm">
+    <div class="card-body d-flex flex-column">
+        <h5 class="card-title text-truncate" title="@Book.Title">@Book.Title</h5>
+        <h6 class="card-subtitle mb-2 text-muted">@AuthorName</h6>
+        <div class="mb-2">
+            <span class="badge bg-secondary">@GenreName</span>
+            <span class="badge bg-info text-dark">@Book.PublishYear</span>
+        </div>
+        <p class="card-text text-truncate" style="max-height: 3em; overflow: hidden;">@Book.Description</p>
+        
+        <div class="mt-auto">
+            <a href="user/book/@Book.BookId" class="btn btn-primary w-100">View Details</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Book Book { get; set; } = new();
+    [Parameter] public string AuthorName { get; set; } = "Unknown";
+    [Parameter] public string GenreName { get; set; } = "Unknown";
+}

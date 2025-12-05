@@ -1,0 +1,29 @@
+<div class="star-rating">
+    @for (int i = 1; i <= 5; i++)
+    {
+        var starValue = i;
+        var isFilled = IsReadOnly ? (i <= Math.Floor(Rating)) : (i <= Value);
+        var isHalf = IsReadOnly ? (i == Math.Ceiling(Rating) && Rating % 1 != 0) : false;
+
+        <span class="bi @(isHalf ? "bi-star-half" : isFilled ? "bi-star-fill" : "bi-star") @(IsReadOnly ? "" : "cursor-pointer") text-warning"
+              @onclick="() => SetRating(starValue)"
+              style="@(IsReadOnly ? "" : "cursor: pointer;")">
+        </span>
+    }
+</div>
+
+@code {
+    [Parameter] public double Rating { get; set; }
+    [Parameter] public int Value { get; set; }
+    [Parameter] public bool IsReadOnly { get; set; } = false;
+    [Parameter] public EventCallback<int> ValueChanged { get; set; }
+
+    private async Task SetRating(int rating)
+    {
+        if (!IsReadOnly)
+        {
+            Value = rating;
+            await ValueChanged.InvokeAsync(Value);
+        }
+    }
+}

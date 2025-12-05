@@ -1,0 +1,50 @@
+.sortable-header {
+  position: relative;
+  padding: 0.875rem 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  background-color: var(--bg-card, #ffffff);
+  border-bottom: 2px solid var(--border-color, #e2e8f0);
+  transition: all 0.2s ease;
+}
+
+.sortable-header:hover {
+  background-color: var(--primary-light, #e0e7ff);
+}
+
+.sortable-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sort-icons {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sort-icon {
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.sort-icon.active {
+  color: var(--primary, #4f46e5);
+  opacity: 1;
+}
+
+.sort-icon.inactive {
+  color: var(--text-muted, #94a3b8);
+  opacity: 0.3;
+}
+
+.sortable-header:hover .sort-icon.inactive {
+  opacity: 0.6;
+}
+
+/* Table with sortable headers */
+.table thead .sortable-header {
+  border-bottom: 2px solid var(--border-color, #e2e8f0);
+}

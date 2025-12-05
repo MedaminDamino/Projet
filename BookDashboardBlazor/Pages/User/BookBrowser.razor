@@ -1,0 +1,119 @@
+@page "/user/browse"
+@layout UserLayout
+@using BookDashboardBlazor.Models
+@inject HttpClient Http
+@attribute [Authorize]
+
+<h3>Browse Books</h3>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" placeholder="Search by title..." @bind="searchTerm" @bind:event="oninput" />
+        </div>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" @bind="selectedGenreId">
+            <option value="0">All Genres</option>
+            @foreach (var genre in genres)
+            {
+                <option value="@genre.GenreId">@genre.GenreName</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" @bind="selectedAuthorId">
+            <option value="0">All Authors</option>
+            @foreach (var author in authors)
+            {
+                <option value="@author.AuthorId">@author.Name</option>
+            }
+        </select>
+    </div>
+</div>
+
+<div class="row row-cols-1 row-cols-md-3 g-4">
+    @if (FilteredBooks == null)
+    {
+        <p>Loading books...</p>
+    }
+    else if (!FilteredBooks.Any())
+    {
+        <div class="col-12">
+            <div class="alert alert-info">No books found matching your criteria.</div>
+        </div>
+    }
+    else
+    {
+        @foreach (var book in FilteredBooks)
+        {
+            <div class="col">
+                <BookCard Book="book" AuthorName="@GetAuthorName(book.AuthorId)" GenreName="@GetGenreName(book.GenreId)" />
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<Book> books = new();
+    private List<Author> authors = new();
+    private List<Genre> genres = new();
+
+    private string searchTerm = "";
+    private int selectedGenreId = 0;
+    private int selectedAuthorId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var t1 = Http.GetFromJsonAsync<List<Book>>("api/Books");
+            var t2 = Http.GetFromJsonAsync<List<Author>>("api/Author");
+            var t3 = Http.GetFromJsonAsync<List<Genre>>("api/Genre");
+
+            await Task.WhenAll(t1, t2, t3);
+
+            books = await t1 ?? new List<Book>();
+            authors = await t2 ?? new List<Author>();
+            genres = await t3 ?? new List<Genre>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading books: {ex.Message}");
+        }
+    }
+
+    private IEnumerable<Book> FilteredBooks
+    {
+        get
+        {
+            var query = books.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                query = query.Where(b => b.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (selectedGenreId > 0)
+            {
+                query = query.Where(b => b.GenreId == selectedGenreId);
+            }
+
+            if (selectedAuthorId > 0)
+            {
+                query = query.Where(b => b.AuthorId == selectedAuthorId);
+            }
+
+            return query;
+        }
+    }
+
+    private string GetAuthorName(int? id) => id.HasValue
+        ? authors.FirstOrDefault(a => a.AuthorId == id.Value)?.Name ?? "Unknown"
+        : "Unknown";
+
+    private string GetGenreName(int? id) => id.HasValue
+        ? genres.FirstOrDefault(g => g.GenreId == id.Value)?.GenreName ?? "Unknown"
+        : "Unknown";
+}

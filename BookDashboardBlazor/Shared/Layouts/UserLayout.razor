@@ -1,0 +1,68 @@
+@inherits LayoutComponentBase
+@using BookDashboardBlazor.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<div class="page">
+    <div class="sidebar">
+        <UserNavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <AuthorizeView>
+                <Authorized>
+                    <span class="me-3">Welcome, @context.User.Identity?.Name</span>
+                    <button class="btn btn-link" @onclick="Logout">Logout</button>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="login">Login</a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+
+        <article class="content px-4">
+            <ErrorBoundary>
+                <ChildContent>
+                    @if (_isNavigating)
+                    {
+                        <LoadingSpinner />
+                    }
+                    else
+                    {
+                        @Body
+                    }
+                </ChildContent>
+                <ErrorContent>
+                    <LoadingSpinner />
+                </ErrorContent>
+            </ErrorBoundary>
+        </article>
+    </main>
+</div>
+
+@code {
+    private bool _isNavigating;
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += HandleLocationChanged;
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _isNavigating = false;
+        StateHasChanged();
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.Logout();
+        NavigationManager.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= HandleLocationChanged;
+    }
+}
