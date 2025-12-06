@@ -128,6 +128,13 @@ namespace API.Controllers
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
+            var roles = await userManager.GetRolesAsync(user);
+            foreach (var role in roles)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, role));
+                claims.Add(new Claim("role", role));
+            }
+
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(
                 configuration["JWT:SecretKey"]));

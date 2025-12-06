@@ -1,7 +1,6 @@
 using API.DTO;
 using API.Interfaces;
 using API.Models;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Linq;
@@ -27,25 +26,10 @@ namespace API.Controllers
             ?? User?.FindFirstValue("sub")
             ?? User?.FindFirstValue(ClaimTypes.Name);
 
-        private IActionResult UnauthorizedApiResponse() => Unauthorized(new ApiResponse<object>
-        {
-            Success = false,
-            Message = "User not authenticated",
-            ErrorCode = "UNAUTHORIZED"
-        });
-
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var userId = GetUserId();
-            if (string.IsNullOrEmpty(userId))
-            {
-                return UnauthorizedApiResponse();
-            }
-
-            var goals = (await _repo.GetAllAsync())
-                .Where(g => g.ApplicationUserId == userId)
-                .ToList();
+            var goals = (await _repo.GetAllAsync());
 
             return Ok(new ApiResponse<IEnumerable<ReadingGoal>>
             {
@@ -58,14 +42,8 @@ namespace API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var userId = GetUserId();
-            if (string.IsNullOrEmpty(userId))
-            {
-                return UnauthorizedApiResponse();
-            }
-
             var goal = await _repo.GetByIdAsync(id);
-            if (goal == null || goal.ApplicationUserId != userId) return NotFound(new ApiResponse<object>
+            if (goal == null) return NotFound(new ApiResponse<object>
             {
                 Success = false,
                 Message = "Goal not found",
@@ -83,10 +61,6 @@ namespace API.Controllers
         public async Task<IActionResult> Create(ReadingGoalCreateDto goalDto)
         {
             var userId = GetUserId();
-            if (string.IsNullOrEmpty(userId))
-            {
-                return UnauthorizedApiResponse();
-            }
 
             if (goalDto.BookId <= 0)
             {
@@ -144,10 +118,6 @@ namespace API.Controllers
         public async Task<IActionResult> Update(int id, ReadingGoalUpdateDto updated)
         {
             var userId = GetUserId();
-            if (string.IsNullOrEmpty(userId))
-            {
-                return UnauthorizedApiResponse();
-            }
 
             var existing = await _repo.GetByIdAsync(id);
             if (existing == null)
@@ -157,16 +127,6 @@ namespace API.Controllers
                     Success = false,
                     Message = "Goal not found",
                     ErrorCode = "NOT_FOUND"
-                });
-            }
-
-            if (existing.ApplicationUserId != null && existing.ApplicationUserId != userId)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new ApiResponse<object>
-                {
-                    Success = false,
-                    Message = "You cannot modify this goal.",
-                    ErrorCode = "FORBIDDEN"
                 });
             }
 
@@ -221,12 +181,6 @@ namespace API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var userId = GetUserId();
-            if (string.IsNullOrEmpty(userId))
-            {
-                return UnauthorizedApiResponse();
-            }
-
             var goal = await _repo.GetByIdAsync(id);
             if (goal == null)
             {
@@ -235,16 +189,6 @@ namespace API.Controllers
                     Success = false,
                     Message = "Goal not found",
                     ErrorCode = "NOT_FOUND"
-                });
-            }
-
-            if (goal.ApplicationUserId != userId)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new ApiResponse<object>
-                {
-                    Success = false,
-                    Message = "You cannot delete this goal.",
-                    ErrorCode = "FORBIDDEN"
                 });
             }
 

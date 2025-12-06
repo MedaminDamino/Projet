@@ -6,6 +6,14 @@
 
 <h3>Books</h3>
 
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+    <Toast Visible="showSuccessToast"
+           Type="ToastType.Success"
+           Message="@(successMessage ?? string.Empty)"
+           OnClose="HideSuccessToast"
+           CssClass="shadow" />
+</div>
+
 @if (!string.IsNullOrEmpty(errorMessage))
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -53,7 +61,7 @@
 </GenericTable>
 
 @* Create/Edit Modal *@
-<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal">
+<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal" ToastContent="ModalToast">
     @* Use OnSubmit so SaveBook ALWAYS runs (even if validation fails) *@
     <EditForm Model="@currentBook" OnSubmit="SaveBook">
         <DataAnnotationsValidator />
@@ -126,7 +134,7 @@
 </Modal>
 
 @* Delete Confirmation Modal *@
-<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal">
+<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal" ToastContent="ModalToast">
     <p>Are you sure you want to delete <strong>@itemToDelete?.Title</strong>?</p>
     <div class="mt-3">
         <button class="btn btn-danger me-2" @onclick="ConfirmDelete">Delete</button>
@@ -158,6 +166,11 @@
 
     // Delete Modal State
     private bool showDeleteModal = false;
+
+    private string? modalErrorMessage;
+    private string? modalErrorCode;
+    private string? successMessage;
+    private bool showSuccessToast;
 
     private string? errorMessage;
 
@@ -219,6 +232,7 @@
     private void OpenCreateModal()
     {
         Console.WriteLine("[Books] OpenCreateModal clicked");
+        ClearModalError();
         currentBook = new Book();
         selectedImageFile = null;
         imagePreviewUrl = PlaceholderImage;
@@ -230,6 +244,7 @@
     private void OpenEditModal(Book book)
     {
         Console.WriteLine($"[Books] OpenEditModal for BookId={book.BookId}, Title='{book.Title}'");
+        ClearModalError();
         currentBook = new Book
         {
             BookId = book.BookId,
@@ -250,6 +265,7 @@
     private void CloseModal()
     {
         Console.WriteLine("[Books] CloseModal called");
+        ClearModalError();
         showModal = false;
         StateHasChanged();
     }
@@ -257,6 +273,8 @@
     private async Task SaveBook()
     {
         Console.WriteLine($"[Books] SaveBook called. BookId={currentBook.BookId}, Title='{currentBook.Title}'");
+        var isCreate = currentBook.BookId == 0;
+        ClearModalError();
         errorMessage = null;
 
         using var content = BuildMultipartContent();
@@ -277,7 +295,7 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Request failed: {ex.Message}";
+            ShowModalError($"Request failed: {ex.Message}", "REQUEST_FAILED");
             Console.WriteLine($"[Books] Exception during SaveBook HTTP call: {ex}");
             return;
         }
@@ -303,9 +321,9 @@
             }
             else if (!response.IsSuccessStatusCode)
             {
-                errorMessage = apiResponse?.Message ??
-                               $"Failed to save book (status {(int)response.StatusCode}).";
-                Console.WriteLine($"[Books] Error saving book: {errorMessage} (Code: {apiResponse?.ErrorCode})");
+                ShowModalError(apiResponse?.GetUserMessage($"Failed to save book (status {(int)response.StatusCode})."),
+                    apiResponse?.ErrorCode);
+                Console.WriteLine($"[Books] Error saving book: {modalErrorMessage} (Code: {apiResponse?.ErrorCode})");
                 return;
             }
             else
@@ -320,8 +338,9 @@
             // Fallback: if Books endpoint returns plain Book or simple message
             if (!response.IsSuccessStatusCode)
             {
-                errorMessage = $"Failed to save book (status {(int)response.StatusCode}). Server says: {jsonContent}";
-                Console.WriteLine($"[Books] Fallback SaveBook error: {errorMessage}");
+                ShowModalError($"Failed to save book (status {(int)response.StatusCode}). Server says: {jsonContent}",
+                    "HTTP_ERROR");
+                Console.WriteLine($"[Books] Fallback SaveBook error: {modalErrorMessage}");
                 return;
             }
 
@@ -332,6 +351,7 @@
         Console.WriteLine("[Books] SaveBook succeeded, closing modal and reloading data.");
         showModal = false;
         await LoadData();
+        ShowSuccessToast(isCreate ? "Book created successfully" : "Book updated successfully");
     }
 
     private async Task DeleteBook(Book book)
@@ -339,6 +359,7 @@
         // Called from GenericTable OnDelete
         Console.WriteLine($"[Books] DeleteBook clicked for BookId={book.BookId}, Title='{book.Title}'");
         await Task.CompletedTask; // keep async signature
+        ClearModalError();
         itemToDelete = book;
         showDeleteModal = true;
         StateHasChanged();
@@ -347,6 +368,7 @@
     private void CloseDeleteModal()
     {
         Console.WriteLine("[Books] CloseDeleteModal called");
+        ClearModalError();
         showDeleteModal = false;
         itemToDelete = null;
         StateHasChanged();
@@ -364,7 +386,7 @@
 
         try
         {
-            errorMessage = null;
+            ClearModalError();
             var deletingId = itemToDelete.BookId;
             var deletingTitle = itemToDelete.Title;
 
@@ -398,12 +420,13 @@
 
                     Console.WriteLine("[Books] ConfirmDelete reloading data from server...");
                     await LoadData();
+                    ShowSuccessToast("Book deleted successfully");
                     return;
                 }
 
-                errorMessage = apiResponse?.Message ??
-                               $"Failed to delete book: {response.StatusCode}";
-                Console.WriteLine($"[Books] Error deleting book: {errorMessage} (Code: {apiResponse?.ErrorCode})");
+                ShowModalError(apiResponse?.GetUserMessage($"Failed to delete book: {response.StatusCode}"),
+                    apiResponse?.ErrorCode);
+                Console.WriteLine($"[Books] Error deleting book: {modalErrorMessage} (Code: {apiResponse?.ErrorCode})");
             }
             catch (System.Text.Json.JsonException jsonEx)
             {
@@ -412,27 +435,26 @@
                 // Fallback: endpoint returns no wrapper
                 if (!response.IsSuccessStatusCode)
                 {
-                    errorMessage = $"Failed to delete book (status {(int)response.StatusCode}). Server says: {jsonContent}";
-                    Console.WriteLine($"[Books] Fallback delete error: {errorMessage}");
+                    ShowModalError($"Failed to delete book (status {(int)response.StatusCode}). Server says: {jsonContent}",
+                        "HTTP_ERROR");
+                    Console.WriteLine($"[Books] Fallback delete error: {modalErrorMessage}");
                 }
                 else
                 {
                     Console.WriteLine($"[Books] ConfirmDelete fallback: treating delete as success. Removing BookId={deletingId} locally.");
                     books.RemoveAll(b => b.BookId == deletingId);
                     StateHasChanged();
+                    showDeleteModal = false;
+                    itemToDelete = null;
+                    await LoadData();
+                    ShowSuccessToast("Book deleted successfully");
                 }
             }
-
-            showDeleteModal = false;
-            itemToDelete = null;
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error deleting book: {ex.Message}";
+            ShowModalError($"Error deleting book: {ex.Message}", "EXCEPTION");
             Console.WriteLine($"[Books] Exception in ConfirmDelete: {ex}");
-            showDeleteModal = false;
-            itemToDelete = null;
-            StateHasChanged();
         }
     }
 
@@ -493,7 +515,7 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Image load failed: {ex.Message}";
+            ShowModalError($"Image load failed: {ex.Message}", "IMAGE_ERROR");
             Console.WriteLine($"[Books] Exception in OnImageSelected: {ex}");
             selectedImageFile = null;
             imagePreviewUrl = PlaceholderImage;
@@ -523,6 +545,51 @@
         }
 
         return content;
+    }
+
+    private RenderFragment ModalToast => builder =>
+    {
+        if (string.IsNullOrWhiteSpace(modalErrorMessage))
+        {
+            return;
+        }
+
+        builder.OpenComponent<Toast>(0);
+        builder.AddAttribute(1, "Visible", true);
+        builder.AddAttribute(2, "Type", ToastType.Error);
+        builder.AddAttribute(3, "Message", modalErrorMessage);
+        builder.AddAttribute(4, "Code", modalErrorCode);
+        builder.AddAttribute(5, "Duration", 5000);
+        builder.AddAttribute(6, "OnClose", EventCallback.Factory.Create(this, ClearModalError));
+        builder.AddAttribute(7, "CssClass", "w-100 mb-0");
+        builder.CloseComponent();
+    };
+
+    private void ShowModalError(string message, string? code = null)
+    {
+        modalErrorMessage = message;
+        modalErrorCode = code;
+        StateHasChanged();
+    }
+
+    private void ClearModalError()
+    {
+        modalErrorMessage = null;
+        modalErrorCode = null;
+    }
+
+    private void ShowSuccessToast(string message)
+    {
+        successMessage = message;
+        showSuccessToast = true;
+        StateHasChanged();
+    }
+
+    private void HideSuccessToast()
+    {
+        showSuccessToast = false;
+        successMessage = null;
+        StateHasChanged();
     }
 
     private string ResolveImageUrl(string? url)

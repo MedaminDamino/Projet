@@ -1,9 +1,26 @@
 @page "/genres"
 @using BookDashboardBlazor.Models
+@using System.Text.Json
 @inject HttpClient Http
 @attribute [Authorize]
 
 <h3>Genres</h3>
+
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+    <Toast Visible="showSuccessToast"
+           Type="ToastType.Success"
+           Message="@(successMessage ?? string.Empty)"
+           OnClose="HideSuccessToast"
+           CssClass="shadow" />
+</div>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>Error:</strong> @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null" aria-label="Close"></button>
+    </div>
+}
 
 <button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add Genre</button>
 
@@ -18,7 +35,7 @@
     </RowTemplate>
 </GenericTable>
 
-<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal">
+<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal" ToastContent="ModalToast">
     <EditForm Model="@currentGenre" OnValidSubmit="SaveGenre">
         <DataAnnotationsValidator />
         <ValidationSummary />
@@ -31,7 +48,7 @@
     </EditForm>
 </Modal>
 
-<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal">
+<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal" ToastContent="ModalToast">
     <p>Are you sure you want to delete <strong>@itemToDelete?.GenreName</strong>?</p>
     <div class="mt-3">
         <button class="btn btn-danger me-2" @onclick="ConfirmDelete">Delete</button>
@@ -47,6 +64,16 @@
     private Genre? itemToDelete = null;
     private string modalTitle = "Add Genre";
 
+    private string? modalErrorMessage;
+    private string? modalErrorCode;
+    private string? successMessage;
+    private bool showSuccessToast;
+    private string? errorMessage;
+    private readonly JsonSerializerOptions jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     protected override async Task OnInitializedAsync()
     {
         await LoadGenres();
@@ -56,7 +83,10 @@
     {
         try
         {
+            errorMessage = null;
             var response = await Http.GetAsync("api/Genre");
+            var json = await response.Content.ReadAsStringAsync();
+
             if (response.IsSuccessStatusCode)
             {
                 genres = await response.Content.ReadFromJsonAsync<List<Genre>>() ?? new List<Genre>();
@@ -64,18 +94,21 @@
             else
             {
                 genres = new List<Genre>();
-                Console.WriteLine($"Error loading genres: {response.StatusCode}");
+                errorMessage = $"Error loading genres: {(int)response.StatusCode} {response.StatusCode}";
+                Console.WriteLine($"Error loading genres: {response.StatusCode}, body: {json}");
             }
         }
         catch (Exception ex)
         {
             genres = new List<Genre>();
+            errorMessage = $"Exception loading genres: {ex.Message}";
             Console.WriteLine($"Exception loading genres: {ex.Message}");
         }
     }
 
     private void OpenCreateModal()
     {
+        ClearModalError();
         currentGenre = new Genre();
         modalTitle = "Add Genre";
         showModal = true;
@@ -84,6 +117,7 @@
 
     private void OpenEditModal(Genre genre)
     {
+        ClearModalError();
         currentGenre = new Genre
         {
             GenreId = genre.GenreId,
@@ -96,44 +130,73 @@
 
     private void CloseModal()
     {
+        ClearModalError();
         showModal = false;
         StateHasChanged();
     }
 
     private async Task SaveGenre()
     {
+        ClearModalError();
+        var isCreate = currentGenre.GenreId == 0;
+
         try
         {
-            if (currentGenre.GenreId == 0)
+            HttpResponseMessage response;
+            if (isCreate)
             {
-                var response = await Http.PostAsJsonAsync("api/Genre", currentGenre);
-                if (!response.IsSuccessStatusCode)
-                {
-                    Console.WriteLine($"Error creating genre: {response.StatusCode}");
-                    return;
-                }
+                response = await Http.PostAsJsonAsync("api/Genre", currentGenre);
             }
             else
             {
-                var response = await Http.PutAsJsonAsync($"api/Genre/{currentGenre.GenreId}", currentGenre);
-                if (!response.IsSuccessStatusCode)
+                response = await Http.PutAsJsonAsync($"api/Genre/{currentGenre.GenreId}", currentGenre);
+            }
+
+            var jsonContent = await response.Content.ReadAsStringAsync();
+            ApiResponse<Genre>? apiResponse = null;
+            if (!string.IsNullOrWhiteSpace(jsonContent))
+            {
+                try
                 {
-                    Console.WriteLine($"Error updating genre: {response.StatusCode}");
-                    return;
+                    apiResponse = JsonSerializer.Deserialize<ApiResponse<Genre>>(jsonContent, jsonOptions);
+                }
+                catch (JsonException ex)
+                {
+                    Console.WriteLine($"[Genres] JSON parse warning on save: {ex.Message}");
                 }
             }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                ShowModalError(apiResponse?.GetUserMessage($"Failed to save genre (status {(int)response.StatusCode})."),
+                    apiResponse?.ErrorCode);
+                Console.WriteLine($"Error saving genre: {modalErrorMessage}");
+                return;
+            }
+
+            if (apiResponse is not null && !apiResponse.Success &&
+                (!string.IsNullOrWhiteSpace(apiResponse.Message) || !string.IsNullOrWhiteSpace(apiResponse.ErrorCode)))
+            {
+                ShowModalError(apiResponse.GetUserMessage($"Failed to save genre (status {(int)response.StatusCode})."),
+                    apiResponse.ErrorCode);
+                Console.WriteLine($"Error saving genre: {modalErrorMessage}");
+                return;
+            }
+
             showModal = false;
             await LoadGenres();
-            StateHasChanged();
+            ShowSuccessToast(isCreate ? "Genre created successfully" : "Genre updated successfully");
         }
         catch (Exception ex)
         {
+            ShowModalError($"Exception saving genre: {ex.Message}", "EXCEPTION");
             Console.WriteLine($"Exception saving genre: {ex.Message}");
         }
     }
 
     private Task DeleteGenre(Genre genre)
     {
+        ClearModalError();
         itemToDelete = genre;
         showDeleteModal = true;
         StateHasChanged();
@@ -147,33 +210,101 @@
         try
         {
             var response = await Http.DeleteAsync($"api/Genre/{itemToDelete.GenreId}");
+            var jsonContent = await response.Content.ReadAsStringAsync();
+            ApiResponse<object>? apiResponse = null;
+            if (!string.IsNullOrWhiteSpace(jsonContent))
+            {
+                try
+                {
+                    apiResponse = JsonSerializer.Deserialize<ApiResponse<object>>(jsonContent, jsonOptions);
+                }
+                catch (JsonException ex)
+                {
+                    Console.WriteLine($"[Genres] JSON parse warning on delete: {ex.Message}");
+                }
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                ShowModalError(apiResponse?.GetUserMessage($"Error deleting genre: {response.StatusCode}"),
+                    apiResponse?.ErrorCode);
+                Console.WriteLine($"Error deleting genre: {modalErrorMessage}");
+                return;
+            }
+
+            if (apiResponse is not null && !apiResponse.Success &&
+                (!string.IsNullOrWhiteSpace(apiResponse.Message) || !string.IsNullOrWhiteSpace(apiResponse.ErrorCode)))
+            {
+                ShowModalError(apiResponse.GetUserMessage($"Error deleting genre: {response.StatusCode}"),
+                    apiResponse.ErrorCode);
+                Console.WriteLine($"Error deleting genre: {modalErrorMessage}");
+                return;
+            }
+
             showDeleteModal = false;
             itemToDelete = null;
             StateHasChanged();
-
-            if (response.IsSuccessStatusCode)
-            {
-                await LoadGenres();
-            }
-            else
-            {
-                Console.WriteLine($"Error deleting genre: {response.StatusCode}");
-            }
+            await LoadGenres();
+            ShowSuccessToast("Genre deleted successfully");
         }
         catch (Exception ex)
         {
+            ShowModalError($"Exception deleting genre: {ex.Message}", "EXCEPTION");
             Console.WriteLine($"Exception deleting genre: {ex.Message}");
-            showDeleteModal = false;
-            itemToDelete = null;
-            StateHasChanged();
         }
     }
 
     private Task CloseDeleteModal()
     {
+        ClearModalError();
         showDeleteModal = false;
         itemToDelete = null;
         StateHasChanged();
         return Task.CompletedTask;
+    }
+
+    private RenderFragment ModalToast => builder =>
+    {
+        if (string.IsNullOrWhiteSpace(modalErrorMessage))
+        {
+            return;
+        }
+
+        builder.OpenComponent<Toast>(0);
+        builder.AddAttribute(1, "Visible", true);
+        builder.AddAttribute(2, "Type", ToastType.Error);
+        builder.AddAttribute(3, "Message", modalErrorMessage);
+        builder.AddAttribute(4, "Code", modalErrorCode);
+        builder.AddAttribute(5, "Duration", 5000);
+        builder.AddAttribute(6, "OnClose", EventCallback.Factory.Create(this, ClearModalError));
+        builder.AddAttribute(7, "CssClass", "w-100 mb-0");
+        builder.CloseComponent();
+    };
+
+    private void ShowModalError(string message, string? code = null)
+    {
+        modalErrorMessage = message;
+        modalErrorCode = code;
+        StateHasChanged();
+    }
+
+    private void ClearModalError()
+    {
+        modalErrorMessage = null;
+        modalErrorCode = null;
+    }
+
+    private void ShowSuccessToast(string message)
+    {
+        successMessage = message;
+        showSuccessToast = true;
+        StateHasChanged();
+    }
+
+    private void HideSuccessToast()
+    {
+        showSuccessToast = false;
+        successMessage = null;
+        StateHasChanged();
     }
 }

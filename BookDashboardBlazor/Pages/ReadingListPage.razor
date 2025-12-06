@@ -6,6 +6,14 @@
 
 <h3>Reading List</h3>
 
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+    <Toast Visible="showSuccessToast"
+           Type="ToastType.Success"
+           Message="@(successMessage ?? string.Empty)"
+           OnClose="HideSuccessToast"
+           CssClass="shadow" />
+</div>
+
 @if (!string.IsNullOrEmpty(errorMessage))
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -37,7 +45,7 @@
 </GenericTable>
 
 @* Edit/Add Modal *@
-<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal">
+<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal" ToastContent="ModalToast">
     <EditForm Model="@currentReadingList" OnValidSubmit="SaveReadingList">
         <DataAnnotationsValidator />
         <ValidationSummary />
@@ -67,7 +75,7 @@
 </Modal>
 
 @* Delete Confirmation Modal *@
-<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal">
+<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal" ToastContent="ModalToast">
     <p>Are you sure you want to remove <strong>@itemToDelete?.Book?.Title</strong> from your reading list?</p>
     <div class="mt-3">
         <button class="btn btn-danger me-2" @onclick="ConfirmDelete">Delete</button>
@@ -85,6 +93,15 @@
     private string modalTitle = "Add to Reading List";
     private string? errorMessage;
     private string? errorCode;
+    private string? modalErrorMessage;
+    private string? modalErrorCode;
+    private string? successMessage;
+    private bool showSuccessToast;
+
+    private readonly System.Text.Json.JsonSerializerOptions jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     private void ClearError()
     {
@@ -96,7 +113,6 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadBooks();
-
         await LoadReadingList();
     }
 
@@ -118,14 +134,13 @@
     {
         try
         {
-            errorMessage = null;
+            ClearError();
             Console.WriteLine("Attempting to load reading list from api/ReadingList...");
-            
-            // Get raw response first to see what we're getting
+
             var response = await Http.GetAsync("api/ReadingList");
             var jsonContent = await response.Content.ReadAsStringAsync();
             Console.WriteLine($"Raw API Response: {jsonContent.Substring(0, Math.Min(200, jsonContent.Length))}...");
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 errorMessage = $"API Error: {response.StatusCode}";
@@ -134,26 +149,21 @@
                 return;
             }
 
-            // Deserialize the wrapper response
             try
             {
-                var options = new System.Text.Json.JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                };
-                
-                var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<List<ReadingList>>>(jsonContent, options);
-                
+                var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<List<ReadingList>>>(jsonContent, jsonOptions);
+
                 if (apiResponse == null || !apiResponse.Success || apiResponse.Data == null)
                 {
                     errorMessage = apiResponse?.Message ?? "Failed to load reading list";
+                    errorCode = apiResponse?.ErrorCode;
                     Console.WriteLine($"API returned unsuccessful response: {apiResponse?.Message}");
                     readingList = new List<ReadingList>();
                     return;
                 }
-                
+
                 readingList = apiResponse.Data;
-                
+
                 Console.WriteLine($"Successfully loaded {readingList.Count} reading list items");
                 foreach (var item in readingList)
                 {
@@ -163,8 +173,8 @@
                         Console.WriteLine($"  Book Title: '{item.Book.Title}', BookId: {item.Book.BookId}");
                     }
                 }
-                
-                StateHasChanged(); // Force UI update
+
+                StateHasChanged();
             }
             catch (System.Text.Json.JsonException jsonEx)
             {
@@ -192,6 +202,7 @@
     private void OpenCreateModal()
     {
         Console.WriteLine("Opening Create modal");
+        ClearModalError();
         currentReadingList = new ReadingList
         {
             Status = "Not Started",
@@ -205,13 +216,15 @@
     private void OpenEditModal(ReadingList item)
     {
         Console.WriteLine($"Opening Edit modal for item ID: {item.ReadingListID}");
+        ClearModalError();
         currentReadingList = new ReadingList
         {
             ReadingListID = item.ReadingListID,
             AppUserID = item.AppUserID,
             BookId = item.BookId,
             Status = item.Status,
-            AddedAt = item.AddedAt
+            AddedAt = item.AddedAt,
+            Book = item.Book
         };
         modalTitle = "Edit Reading List";
         showModal = true;
@@ -221,6 +234,7 @@
     private void CloseModal()
     {
         Console.WriteLine("Closing modal");
+        ClearModalError();
         showModal = false;
         StateHasChanged();
     }
@@ -229,94 +243,53 @@
     {
         try
         {
-            // Clear previous error
             ClearError();
+            ClearModalError();
 
-            // Validate
+            var isCreate = currentReadingList.ReadingListID == 0;
+
             if (currentReadingList.BookId == 0)
             {
-                errorMessage = "Please select a book.";
-                errorCode = "VALIDATION_ERROR";
-                showModal = false; // Close modal
-                StateHasChanged();
+                ShowModalError("Please select a book.", "VALIDATION_ERROR");
                 return;
             }
 
-            if (currentReadingList.ReadingListID == 0)
+            HttpResponseMessage response;
+            if (isCreate)
             {
-                // Create new
                 Console.WriteLine($"Creating new reading list item for BookId: {currentReadingList.BookId}");
-                var response = await Http.PostAsJsonAsync("api/ReadingList", currentReadingList);
-                var jsonContent = await response.Content.ReadAsStringAsync();
-                
-                Console.WriteLine($"Create Response: {jsonContent.Substring(0, Math.Min(200, jsonContent.Length))}...");
-                
-                // Try to parse ApiResponse
-                var options = new System.Text.Json.JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                };
-                
-                var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<ReadingList>>(jsonContent, options);
-                
-                if (apiResponse == null || !apiResponse.Success)
-                {
-                    // Close modal and show error
-                    showModal = false;
-                    errorMessage = apiResponse?.Message ?? $"Failed to create item: {response.StatusCode}";
-                    errorCode = apiResponse?.ErrorCode;
-                    Console.WriteLine($"Error creating reading list: {errorMessage} (Code: {errorCode})");
-                    StateHasChanged();
-                    return;
-                }
-                
-                Console.WriteLine("Successfully created reading list item");
+                response = await Http.PostAsJsonAsync("api/ReadingList", currentReadingList);
             }
             else
             {
-                // Update existing
                 Console.WriteLine($"Updating reading list item ID: {currentReadingList.ReadingListID}");
-                var response = await Http.PutAsJsonAsync($"api/ReadingList/{currentReadingList.ReadingListID}", currentReadingList);
-                var jsonContent = await response.Content.ReadAsStringAsync();
-                
-                Console.WriteLine($"Update Response: {jsonContent.Substring(0, Math.Min(200, jsonContent.Length))}...");
-                
-                // Try to parse ApiResponse
-                var options = new System.Text.Json.JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                };
-                
-                var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<ReadingList>>(jsonContent, options);
-                
-                if (apiResponse == null || !apiResponse.Success)
-                {
-                    // Close modal and show error
-                    showModal = false;
-                    errorMessage = apiResponse?.Message ?? $"Failed to update item: {response.StatusCode}";
-                    errorCode = apiResponse?.ErrorCode;
-                    Console.WriteLine($"Error updating reading list: {errorMessage} (Code: {errorCode})");
-                    StateHasChanged();
-                    return;
-                }
-                
-                Console.WriteLine("Successfully updated reading list item");
+                response = await Http.PutAsJsonAsync($"api/ReadingList/{currentReadingList.ReadingListID}", currentReadingList);
             }
-            
-            // Success - close modal and reload
+
+            var jsonContent = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Save Response: {jsonContent.Substring(0, Math.Min(200, jsonContent.Length))}...");
+
+            var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<ReadingList>>(jsonContent, jsonOptions);
+
+            if (apiResponse == null || !apiResponse.Success)
+            {
+                ShowModalError(apiResponse?.GetUserMessage($"Failed to {(isCreate ? "create" : "update")} item: {response.StatusCode}"),
+                    apiResponse?.ErrorCode);
+                Console.WriteLine($"Error saving reading list: {modalErrorMessage} (Code: {modalErrorCode})");
+                return;
+            }
+
             showModal = false;
-            await LoadReadingList(); // Reload data to refresh UI
+            await LoadReadingList();
+            ShowSuccessToast(isCreate ? "Reading list item created successfully" : "Reading list item updated successfully");
             StateHasChanged();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Exception saving reading list: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            
-            // Close modal and show error
-            showModal = false;
-            errorMessage = $"Error saving item: {ex.Message}";
-            errorCode = "EXCEPTION";
+
+            ShowModalError($"Error saving item: {ex.Message}", "EXCEPTION");
             StateHasChanged();
         }
     }
@@ -324,14 +297,17 @@
     private async Task DeleteReadingList(ReadingList item)
     {
         Console.WriteLine($"Delete button clicked for item ID: {item.ReadingListID}");
+        ClearModalError();
         itemToDelete = item;
         showDeleteModal = true;
         StateHasChanged();
+        await Task.CompletedTask;
     }
 
     private void CloseDeleteModal()
     {
         Console.WriteLine("Closing delete modal");
+        ClearModalError();
         showDeleteModal = false;
         itemToDelete = null;
         StateHasChanged();
@@ -347,61 +323,89 @@
 
         try
         {
-            // Clear previous errors
             ClearError();
-            
+            ClearModalError();
+
             Console.WriteLine($"Attempting to delete reading list item ID: {itemToDelete.ReadingListID}");
             var response = await Http.DeleteAsync($"api/ReadingList/{itemToDelete.ReadingListID}");
             var jsonContent = await response.Content.ReadAsStringAsync();
-            
+
             Console.WriteLine($"Delete Response: {jsonContent.Substring(0, Math.Min(200, jsonContent.Length))}...");
-            
-            // Try to parse ApiResponse
-            var options = new System.Text.Json.JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-            
-            var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<object>>(jsonContent, options);
-            
+
+            var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<object>>(jsonContent, jsonOptions);
+
             if (apiResponse != null && apiResponse.Success)
             {
                 Console.WriteLine($"Successfully deleted reading list item ID: {itemToDelete.ReadingListID}");
-                
-                // Remove from local list immediately for instant UI update
+
                 readingList.RemoveAll(x => x.ReadingListID == itemToDelete.ReadingListID);
-                
-                // Close modal
+
                 showDeleteModal = false;
                 itemToDelete = null;
-                
-                StateHasChanged(); // Force UI refresh
-                
-                // Reload from server to ensure consistency
+
+                StateHasChanged();
+
                 await LoadReadingList();
+                ShowSuccessToast("Reading list item deleted successfully");
             }
             else
             {
-                // Close modal and show error
-                showDeleteModal = false;
-                errorMessage = apiResponse?.Message ?? $"Failed to delete item: {response.StatusCode}";
-                errorCode = apiResponse?.ErrorCode;
-                Console.WriteLine($"Error deleting reading list: {errorMessage} (Code: {errorCode})");
-                itemToDelete = null;
-                StateHasChanged();
+                ShowModalError(apiResponse?.GetUserMessage($"Failed to delete item: {response.StatusCode}"),
+                    apiResponse?.ErrorCode);
+                Console.WriteLine($"Error deleting reading list: {modalErrorMessage} (Code: {modalErrorCode})");
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Exception deleting reading list: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            
-            // Close modal and show error
-            showDeleteModal = false;
-            errorMessage = $"Error deleting item: {ex.Message}";
-            errorCode = "EXCEPTION";
-            itemToDelete = null;
-            StateHasChanged();
+
+            ShowModalError($"Error deleting item: {ex.Message}", "EXCEPTION");
         }
+    }
+
+    private RenderFragment ModalToast => builder =>
+    {
+        if (string.IsNullOrWhiteSpace(modalErrorMessage))
+        {
+            return;
+        }
+
+        builder.OpenComponent<Toast>(0);
+        builder.AddAttribute(1, "Visible", true);
+        builder.AddAttribute(2, "Type", ToastType.Error);
+        builder.AddAttribute(3, "Message", modalErrorMessage);
+        builder.AddAttribute(4, "Code", modalErrorCode);
+        builder.AddAttribute(5, "Duration", 5000);
+        builder.AddAttribute(6, "OnClose", EventCallback.Factory.Create(this, ClearModalError));
+        builder.AddAttribute(7, "CssClass", "w-100 mb-0");
+        builder.CloseComponent();
+    };
+
+    private void ShowModalError(string message, string? code = null)
+    {
+        modalErrorMessage = message;
+        modalErrorCode = code;
+        StateHasChanged();
+    }
+
+    private void ClearModalError()
+    {
+        modalErrorMessage = null;
+        modalErrorCode = null;
+    }
+
+    private void ShowSuccessToast(string message)
+    {
+        successMessage = message;
+        showSuccessToast = true;
+        StateHasChanged();
+    }
+
+    private void HideSuccessToast()
+    {
+        showSuccessToast = false;
+        successMessage = null;
+        StateHasChanged();
     }
 }

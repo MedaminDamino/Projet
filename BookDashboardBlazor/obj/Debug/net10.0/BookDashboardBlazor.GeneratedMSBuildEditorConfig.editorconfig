@@ -32,6 +32,18 @@ build_property.EnableCodeStyleSeverity =
 build_metadata.AdditionalFiles.TargetPath = QXBwLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[F:/C/me/GLID2 Projet/DotNet/Projet/BookDashboardBlazor/Pages/Admin/RoleClaims.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cUm9sZUNsYWltcy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[F:/C/me/GLID2 Projet/DotNet/Projet/BookDashboardBlazor/Pages/Admin/Roles.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cUm9sZXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[F:/C/me/GLID2 Projet/DotNet/Projet/BookDashboardBlazor/Pages/Admin/UserRoles.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cVXNlclJvbGVzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [F:/C/me/GLID2 Projet/DotNet/Projet/BookDashboardBlazor/Pages/Authors.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQXV0aG9ycy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
@@ -122,6 +134,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [F:/C/me/GLID2 Projet/DotNet/Projet/BookDashboardBlazor/Shared/Components/StarRating.razor]
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXENvbXBvbmVudHNcU3RhclJhdGluZy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[F:/C/me/GLID2 Projet/DotNet/Projet/BookDashboardBlazor/Shared/Components/Toast.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXENvbXBvbmVudHNcVG9hc3QucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [F:/C/me/GLID2 Projet/DotNet/Projet/BookDashboardBlazor/Shared/Layouts/LoadingSpinner.razor]

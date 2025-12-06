@@ -1,11 +1,18 @@
 @page "/goals"
 @using BookDashboardBlazor.Models
-@using System.Net.Http.Headers
 @inject HttpClient Http
-@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @attribute [Authorize]
 
 <h3>Reading Goals</h3>
+
+<!-- Global success toast (top-right) -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+    <Toast Visible="showSuccessToast"
+           Type="ToastType.Success"
+           Message="@(successMessage ?? string.Empty)"
+           OnClose="HideSuccessToast"
+           CssClass="shadow" />
+</div>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -39,7 +46,8 @@
     </RowTemplate>
 </GenericTable>
 
-<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal">
+@* Create / Edit Modal *@
+<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal" ToastContent="ModalToast">
     <EditForm Model="@currentGoal" OnValidSubmit="SaveGoal">
         <DataAnnotationsValidator />
         <ValidationSummary />
@@ -48,30 +56,35 @@
             <label>Year</label>
             <InputNumber @bind-Value="currentGoal.Year" class="form-control" />
         </div>
+
         <div class="mb-3">
-            <label>Goal (Books)</label>
+            <label>Goal (books per year)</label>
             <InputNumber @bind-Value="currentGoal.Goal" class="form-control" />
         </div>
+
         <div class="mb-3">
             <label>Progress</label>
             <InputNumber @bind-Value="currentGoal.Progress" class="form-control" />
         </div>
+
         <div class="mb-3">
             <label>Book</label>
-            <InputSelect @bind-Value="currentGoal.BookId" class="form-select">
-                <option value="0">Select Book</option>
-                @foreach (var book in GetAvailableBooks(currentGoal.Year, currentGoal.Id))
+            <select class="form-control" @bind="currentGoal.BookId">
+                <option value="0">Select a book...</option>
+                @foreach (var book in books)
                 {
                     <option value="@book.BookId">@book.Title</option>
                 }
-            </InputSelect>
+            </select>
         </div>
+
         <button type="submit" class="btn btn-primary">Save</button>
     </EditForm>
 </Modal>
 
-<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal">
-    <p>Are you sure you want to delete the goal for <strong>@itemToDelete?.Year</strong>?</p>
+@* Delete confirmation modal *@
+<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal" ToastContent="ModalToast">
+    <p>Are you sure you want to delete goal <strong>@itemToDelete?.Goal</strong> for year <strong>@itemToDelete?.Year</strong>?</p>
     <div class="mt-3">
         <button class="btn btn-danger me-2" @onclick="ConfirmDelete">Delete</button>
         <button class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
@@ -81,93 +94,146 @@
 @code {
     private List<ReadingGoal> goals = new();
     private List<Book> books = new();
+
     private ReadingGoal currentGoal = new();
-    private bool showModal = false;
-    private bool showDeleteModal = false;
-    private ReadingGoal? itemToDelete = null;
+    private ReadingGoal? itemToDelete;
+
+    private bool showModal;
+    private bool showDeleteModal;
     private string modalTitle = "Add Goal";
+
     private string? errorMessage;
     private string? errorCode;
+    private string? modalErrorMessage;
+    private string? modalErrorCode;
+    private string? successMessage;
+    private bool showSuccessToast;
+
     private readonly System.Text.Json.JsonSerializerOptions jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
+    private void ClearError()
+    {
+        errorMessage = null;
+        errorCode = null;
+        StateHasChanged();
+    }
+
     protected override async Task OnInitializedAsync()
     {
-        await LoadData();
+        Console.WriteLine("[Goals] OnInitializedAsync called");
+        await LoadBooks();
+        await LoadGoals();
     }
 
-    private async Task EnsureAuthorizedClientAsync()
+    private async Task LoadBooks()
     {
-        var token = await LocalStorage.GetItemAsStringAsync("token");
-        if (string.IsNullOrWhiteSpace(token)) return;
-
-        var cleanToken = token.Replace("\"", "");
-        if (Http.DefaultRequestHeaders.Authorization?.Parameter != cleanToken)
-        {
-            Http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", cleanToken);
-        }
-    }
-
-    private async Task LoadData()
-    {
-        Console.WriteLine("[Goals] Loading books and goals");
-        ClearError();
         try
         {
-            await EnsureAuthorizedClientAsync();
-
-            var booksResponse = await Http.GetAsync("api/Books");
-            var goalsResponse = await Http.GetAsync("api/ReadingGoal");
-
-            var jsonBooks = await booksResponse.Content.ReadAsStringAsync();
-            var jsonGoals = await goalsResponse.Content.ReadAsStringAsync();
-            Console.WriteLine($"[Goals] Books status {(int)booksResponse.StatusCode}, goals status {(int)goalsResponse.StatusCode}");
-            Console.WriteLine($"[Goals] Goals raw response: {jsonGoals}");
-
-            books = System.Text.Json.JsonSerializer.Deserialize<List<Book>>(jsonBooks, jsonOptions) ?? new List<Book>();
-
-            if (goalsResponse.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                errorMessage = "User not authenticated";
-                errorCode = "UNAUTHORIZED";
-                goals = new List<ReadingGoal>();
-                Console.WriteLine("[Goals] Unauthorized when loading goals");
-                StateHasChanged();
-                return;
-            }
-
-            var goalsApi = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<List<ReadingGoal>>>(jsonGoals, jsonOptions);
-            if (goalsResponse.IsSuccessStatusCode && goalsApi != null && goalsApi.Success && goalsApi.Data != null)
-            {
-                goals = goalsApi.Data;
-                Console.WriteLine($"[Goals] Loaded {goals.Count} goals and {books.Count} books");
-            }
-            else
-            {
-                errorMessage = goalsApi?.Message ?? $"Failed to load goals (status {(int)goalsResponse.StatusCode})";
-                errorCode = goalsApi?.ErrorCode;
-                goals = new List<ReadingGoal>();
-                Console.WriteLine($"[Goals] Error loading goals: {errorMessage}");
-                StateHasChanged();
-            }
+            Console.WriteLine("[Goals] Loading books...");
+            books = await Http.GetFromJsonAsync<List<Book>>("api/Books") ?? new List<Book>();
+            Console.WriteLine($"[Goals] Loaded {books.Count} books");
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error loading data: {ex.Message}";
-            Console.WriteLine($"[Goals] Exception loading data: {ex}");
+            Console.WriteLine($"[Goals] Error loading books: {ex.Message}");
+            errorMessage = $"Error loading books: {ex.Message}";
+        }
+    }
+
+    private async Task LoadGoals()
+    {
+        try
+        {
+            ClearError();
+            Console.WriteLine("[Goals] Loading books and goals");
+
+            var response = await Http.GetAsync("api/ReadingGoal");
+            var jsonContent = await response.Content.ReadAsStringAsync();
+
+            Console.WriteLine($"[Goals] Goals status {((int)response.StatusCode)}, raw response: {jsonContent}");
+
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                // API is telling us user not authenticated
+                try
+                {
+                    var apiError = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<object>>(jsonContent, jsonOptions);
+                    errorMessage = apiError?.Message ?? "User not authenticated";
+                    errorCode = apiError?.ErrorCode ?? "UNAUTHORIZED";
+                }
+                catch
+                {
+                    errorMessage = "User not authenticated";
+                    errorCode = "UNAUTHORIZED";
+                }
+
+                goals = new List<ReadingGoal>();
+                Console.WriteLine("[Goals] Unauthorized when loading goals");
+                return;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = $"API Error: {response.StatusCode}";
+                Console.WriteLine($"[Goals] API error when loading goals: {response.StatusCode}");
+                goals = new List<ReadingGoal>();
+                return;
+            }
+
+            try
+            {
+                var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<List<ReadingGoal>>>(jsonContent, jsonOptions);
+
+                if (apiResponse == null || !apiResponse.Success || apiResponse.Data == null)
+                {
+                    errorMessage = apiResponse?.Message ?? "Failed to load goals";
+                    errorCode = apiResponse?.ErrorCode;
+                    Console.WriteLine($"[Goals] API unsuccessful: {apiResponse?.Message}");
+                    goals = new List<ReadingGoal>();
+                    return;
+                }
+
+                goals = apiResponse.Data;
+                Console.WriteLine($"[Goals] Loaded {goals.Count} goals");
+                StateHasChanged();
+            }
+            catch (System.Text.Json.JsonException jsonEx)
+            {
+                Console.WriteLine($"[Goals] JSON error: {jsonEx.Message}");
+                errorMessage = $"Error parsing goals data: {jsonEx.Message}";
+                goals = new List<ReadingGoal>();
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"[Goals] HTTP exception: {ex}");
+            errorMessage = $"HTTP Error loading goals: {ex.Message}";
             goals = new List<ReadingGoal>();
-            books = new List<Book>();
-            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Goals] Exception loading goals: {ex}");
+            errorMessage = $"Error loading goals: {ex.Message}";
+            goals = new List<ReadingGoal>();
         }
     }
 
     private void OpenCreateModal()
     {
-        ClearError();
-        currentGoal = new ReadingGoal { Year = DateTime.Now.Year };
+        Console.WriteLine("[Goals] OpenCreateModal clicked");
+        ClearModalError();
+
+        currentGoal = new ReadingGoal
+        {
+            Year = DateTime.Now.Year,
+            Goal = 0,
+            Progress = 0,
+            BookId = 0
+        };
+
         modalTitle = "Add Goal";
         showModal = true;
         StateHasChanged();
@@ -175,19 +241,22 @@
 
     private void OpenEditModal(ReadingGoal goal)
     {
-        ClearError();
+        Console.WriteLine($"[Goals] OpenEditModal for Id={goal.Id}");
+        ClearModalError();
+
         currentGoal = new ReadingGoal
         {
             Id = goal.Id,
             UserId = goal.UserId,
             ApplicationUserId = goal.ApplicationUserId,
+            BookId = goal.BookId,
             Year = goal.Year,
             Goal = goal.Goal,
             Progress = goal.Progress,
-            BookId = goal.BookId,
-            Book = goal.Book,
-            CreatedAt = goal.CreatedAt
+            CreatedAt = goal.CreatedAt,
+            Book = goal.Book
         };
+
         modalTitle = "Edit Goal";
         showModal = true;
         StateHasChanged();
@@ -195,6 +264,8 @@
 
     private void CloseModal()
     {
+        Console.WriteLine("[Goals] CloseModal called");
+        ClearModalError();
         showModal = false;
         StateHasChanged();
     }
@@ -204,155 +275,164 @@
         try
         {
             ClearError();
+            ClearModalError();
+
+            var isCreate = currentGoal.Id == 0;
 
             if (currentGoal.BookId == 0)
             {
-                errorMessage = "Please select a book for this goal.";
-                errorCode = "VALIDATION_ERROR";
-                showModal = false;
-                StateHasChanged();
+                ShowModalError("Please select a book.", "VALIDATION_ERROR");
                 return;
             }
 
             HttpResponseMessage response;
-            await EnsureAuthorizedClientAsync();
-
-            if (currentGoal.Id == 0)
+            if (isCreate)
             {
                 Console.WriteLine("[Goals] Creating goal");
-                response = await Http.PostAsJsonAsync("api/ReadingGoal", new
-                {
-                    currentGoal.Year,
-                    currentGoal.Goal,
-                    currentGoal.Progress,
-                    currentGoal.BookId
-                });
+                response = await Http.PostAsJsonAsync("api/ReadingGoal", currentGoal);
             }
             else
             {
-                Console.WriteLine($"[Goals] Updating goal {currentGoal.Id}");
-                response = await Http.PutAsJsonAsync($"api/ReadingGoal/{currentGoal.Id}", new
-                {
-                    currentGoal.Year,
-                    currentGoal.Goal,
-                    currentGoal.Progress,
-                    currentGoal.BookId
-                });
+                Console.WriteLine($"[Goals] Updating goal Id={currentGoal.Id}");
+                response = await Http.PutAsJsonAsync($"api/ReadingGoal/{currentGoal.Id}", currentGoal);
             }
 
             var jsonContent = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"[Goals] Save response {(int)response.StatusCode}: {jsonContent}");
-            var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<ReadingGoal>>(jsonContent, jsonOptions);
+            Console.WriteLine($"[Goals] Save response: {jsonContent}");
 
-            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                errorMessage = "User not authenticated";
-                errorCode = "UNAUTHORIZED";
-                Console.WriteLine("[Goals] Unauthorized while saving goal");
-                showModal = false;
-                StateHasChanged();
-                return;
-            }
+            var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<ReadingGoal>>(jsonContent, jsonOptions);
 
             if (apiResponse == null || !apiResponse.Success)
             {
-                errorMessage = apiResponse?.Message ?? $"Failed to save goal (status {(int)response.StatusCode}).";
-                errorCode = apiResponse?.ErrorCode;
-                Console.WriteLine($"[Goals] Error saving goal: {errorMessage} (Code: {errorCode})");
-                showModal = false;
-                StateHasChanged();
+                ShowModalError(apiResponse?.GetUserMessage($"Failed to {(isCreate ? "create" : "update")} goal: {response.StatusCode}"),
+                               apiResponse?.ErrorCode);
+                Console.WriteLine($"[Goals] Error saving goal: {modalErrorMessage} (Code: {modalErrorCode})");
                 return;
             }
 
-            Console.WriteLine("[Goals] Goal saved successfully");
             showModal = false;
+            await LoadGoals();
+            ShowSuccessToast(isCreate ? "Goal created successfully" : "Goal updated successfully");
             StateHasChanged();
-            await LoadData();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Exception saving goal: {ex.Message}";
             Console.WriteLine($"[Goals] Exception saving goal: {ex}");
+            ShowModalError($"Error saving goal: {ex.Message}", "EXCEPTION");
+            StateHasChanged();
         }
     }
 
-    private Task DeleteGoal(ReadingGoal goal)
+    private async Task DeleteGoal(ReadingGoal goal)
     {
-        ClearError();
+        Console.WriteLine($"[Goals] DeleteGoal clicked for Id={goal.Id}");
+        ClearModalError();
         itemToDelete = goal;
         showDeleteModal = true;
         StateHasChanged();
-        return Task.CompletedTask;
+        await Task.CompletedTask;
+    }
+
+    private void CloseDeleteModal()
+    {
+        Console.WriteLine("[Goals] CloseDeleteModal called");
+        ClearModalError();
+        showDeleteModal = false;
+        itemToDelete = null;
+        StateHasChanged();
     }
 
     private async Task ConfirmDelete()
     {
-        if (itemToDelete == null) return;
+        if (itemToDelete == null)
+        {
+            Console.WriteLine("[Goals] ConfirmDelete with no item");
+            return;
+        }
 
         try
         {
             ClearError();
-            await EnsureAuthorizedClientAsync();
+            ClearModalError();
+
+            Console.WriteLine($"[Goals] Deleting goal Id={itemToDelete.Id}");
             var response = await Http.DeleteAsync($"api/ReadingGoal/{itemToDelete.Id}");
-            showDeleteModal = false;
-            itemToDelete = null;
-            StateHasChanged();
+            var jsonContent = await response.Content.ReadAsStringAsync();
 
-            var json = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"[Goals] Delete response {(int)response.StatusCode}: {json}");
-            var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<object>>(json, jsonOptions);
+            Console.WriteLine($"[Goals] Delete response: {jsonContent}");
 
-            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                errorMessage = "User not authenticated";
-                errorCode = "UNAUTHORIZED";
-                Console.WriteLine("[Goals] Unauthorized while deleting goal");
-                StateHasChanged();
-                return;
-            }
+            var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<object>>(jsonContent, jsonOptions);
 
             if (apiResponse != null && apiResponse.Success)
             {
-                Console.WriteLine("[Goals] Goal deleted");
-                await LoadData();
+                Console.WriteLine($"[Goals] Successfully deleted Id={itemToDelete.Id}");
+
+                goals.RemoveAll(g => g.Id == itemToDelete.Id);
+
+                showDeleteModal = false;
+                itemToDelete = null;
+
+                StateHasChanged();
+
+                await LoadGoals();
+                ShowSuccessToast("Goal deleted successfully");
             }
             else
             {
-                errorMessage = apiResponse?.Message ?? $"Error deleting goal: {response.StatusCode}";
-                errorCode = apiResponse?.ErrorCode;
-                Console.WriteLine($"[Goals] Error deleting goal: {errorMessage} (Code: {errorCode})");
+                ShowModalError(apiResponse?.GetUserMessage($"Failed to delete goal: {response.StatusCode}"),
+                               apiResponse?.ErrorCode);
+                Console.WriteLine($"[Goals] Error deleting goal: {modalErrorMessage} (Code: {modalErrorCode})");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Exception deleting goal: {ex.Message}");
-            showDeleteModal = false;
-            itemToDelete = null;
-            StateHasChanged();
+            Console.WriteLine($"[Goals] Exception deleting goal: {ex}");
+            ShowModalError($"Error deleting goal: {ex.Message}", "EXCEPTION");
         }
     }
 
-    private Task CloseDeleteModal()
+    private RenderFragment ModalToast => builder =>
     {
-        showDeleteModal = false;
-        itemToDelete = null;
+        if (string.IsNullOrWhiteSpace(modalErrorMessage))
+        {
+            return;
+        }
+
+        builder.OpenComponent<Toast>(0);
+        builder.AddAttribute(1, "Visible", true);
+        builder.AddAttribute(2, "Type", ToastType.Error);
+        builder.AddAttribute(3, "Message", modalErrorMessage);
+        builder.AddAttribute(4, "Code", modalErrorCode);
+        builder.AddAttribute(5, "Duration", 5000);
+        builder.AddAttribute(6, "OnClose", EventCallback.Factory.Create(this, ClearModalError));
+        builder.AddAttribute(7, "CssClass", "w-100 mb-0");
+        builder.CloseComponent();
+    };
+
+    private void ShowModalError(string message, string? code = null)
+    {
+        modalErrorMessage = message;
+        modalErrorCode = code;
         StateHasChanged();
-        return Task.CompletedTask;
     }
 
-    private IEnumerable<Book> GetAvailableBooks(int year, int editingGoalId)
+    private void ClearModalError()
     {
-        var usedBookIds = goals
-            .Where(g => g.Year == year && g.Id != editingGoalId)
-            .Select(g => g.BookId)
-            .ToHashSet();
-
-        return books.Where(b => !usedBookIds.Contains(b.BookId));
+        modalErrorMessage = null;
+        modalErrorCode = null;
     }
 
-    private void ClearError()
+    private void ShowSuccessToast(string message)
     {
-        errorMessage = null;
-        errorCode = null;
+        successMessage = message;
+        showSuccessToast = true;
+        StateHasChanged();
+    }
+
+    private void HideSuccessToast()
+    {
+        showSuccessToast = false;
+        successMessage = null;
+        StateHasChanged();
     }
 }

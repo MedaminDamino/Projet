@@ -205,6 +205,18 @@ public class ApiResponse<T>
     
     [JsonPropertyName("errorCode")]
     public string? ErrorCode { get; set; }
+
+    public string GetUserMessage(string fallback = "Operation failed.")
+    {
+        if (!string.IsNullOrWhiteSpace(Message))
+        {
+            return Message;
+        }
+
+        return !string.IsNullOrWhiteSpace(ErrorCode)
+            ? $"{fallback} (code: {ErrorCode})"
+            : fallback;
+    }
 }
 
 public class RegistrationResult
@@ -212,4 +224,99 @@ public class RegistrationResult
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
     public List<string> Errors { get; set; } = new();
+}
+
+public class RoleDto
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("normalizedName")]
+    public string NormalizedName { get; set; } = string.Empty;
+}
+
+public class RoleCreateDto
+{
+    [Required]
+    [MinLength(2)]
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+}
+
+public class RoleUpdateDto
+{
+    [Required]
+    [MinLength(2)]
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+}
+
+public class RoleClaimDto
+{
+    [JsonPropertyName("id")]
+    public int Id { get; set; }
+
+    [JsonPropertyName("roleId")]
+    public string RoleId { get; set; } = string.Empty;
+
+    [JsonPropertyName("claimType")]
+    public string ClaimType { get; set; } = string.Empty;
+
+    [JsonPropertyName("claimValue")]
+    public string ClaimValue { get; set; } = string.Empty;
+}
+
+public class RoleClaimCreateDto
+{
+    [Required]
+    [JsonPropertyName("roleId")]
+    public string RoleId { get; set; } = string.Empty;
+
+    [Required]
+    [JsonPropertyName("claimType")]
+    public string ClaimType { get; set; } = string.Empty;
+
+    [Required]
+    [JsonPropertyName("claimValue")]
+    public string ClaimValue { get; set; } = string.Empty;
+}
+
+public class UserWithRolesDto
+{
+    [JsonPropertyName("userId")]
+    public string UserId { get; set; } = string.Empty;
+
+    [JsonPropertyName("userName")]
+    public string UserName { get; set; } = string.Empty;
+
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+
+    [JsonPropertyName("roles")]
+    public List<string> Roles { get; set; } = new();
+}
+
+public class AssignRoleDto
+{
+    [Required]
+    [JsonPropertyName("userId")]
+    public string UserId { get; set; } = string.Empty;
+
+    [Required]
+    [JsonPropertyName("roleIdOrName")]
+    public string RoleIdOrName { get; set; } = string.Empty;
+}
+
+public class RemoveRoleDto
+{
+    [Required]
+    [JsonPropertyName("userId")]
+    public string UserId { get; set; } = string.Empty;
+
+    [Required]
+    [JsonPropertyName("roleIdOrName")]
+    public string RoleIdOrName { get; set; } = string.Empty;
 }

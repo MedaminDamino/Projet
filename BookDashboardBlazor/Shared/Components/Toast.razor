@@ -1,0 +1,98 @@
+@implements IDisposable
+
+@if (Visible)
+{
+    <div class="toast-wrapper">
+        <div class="@AlertClass" role="alert" aria-live="assertive" aria-atomic="true" @attributes="AdditionalAttributes">
+            <div class="d-flex align-items-start">
+                <div class="flex-grow-1">
+                    <div class="fw-semibold">@TitleText</div>
+                    @if (!string.IsNullOrWhiteSpace(Code))
+                    {
+                        <div class="small text-muted">Code: @Code</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Message))
+                    {
+                        <div>@Message</div>
+                    }
+                    @ChildContent
+                </div>
+                <button type="button"
+                        class="btn-close ms-2"
+                        aria-label="Close"
+                        @onclick="CloseAsync"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string Message { get; set; } = string.Empty;
+    [Parameter] public string? Code { get; set; }
+    [Parameter] public ToastType Type { get; set; } = ToastType.Success;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public bool AutoHide { get; set; } = true;
+    [Parameter] public int Duration { get; set; } = 4000;
+    [Parameter] public string CssClass { get; set; } = string.Empty;
+    [Parameter] public string? Heading { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private CancellationTokenSource? _autoHideCts;
+
+    private string AlertClass => $"alert {ResolveIntentClass()} alert-dismissible fade show {CssClass}".Trim();
+    private string TitleText => !string.IsNullOrWhiteSpace(Heading)
+        ? Heading!
+        : Type == ToastType.Success
+            ? "Success"
+            : "Error";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Visible && AutoHide && Duration > 0)
+        {
+            _autoHideCts?.Cancel();
+            _autoHideCts = new CancellationTokenSource();
+
+            try
+            {
+                await Task.Delay(Duration, _autoHideCts.Token);
+                if (!_autoHideCts.IsCancellationRequested)
+                {
+                    await CloseAsync();
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                // Swallow - toast was dismissed manually or re-rendered.
+            }
+        }
+        else if (!Visible)
+        {
+            _autoHideCts?.Cancel();
+        }
+    }
+
+    private string ResolveIntentClass() => Type switch
+    {
+        ToastType.Success => "alert-success",
+        ToastType.Error => "alert-danger",
+        _ => "alert-secondary"
+    };
+
+    private async Task CloseAsync()
+    {
+        _autoHideCts?.Cancel();
+        if (OnClose.HasDelegate)
+        {
+            await OnClose.InvokeAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        _autoHideCts?.Cancel();
+        _autoHideCts?.Dispose();
+    }
+}

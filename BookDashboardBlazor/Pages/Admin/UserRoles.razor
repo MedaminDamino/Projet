@@ -1,0 +1,387 @@
+@page "/admin/user-roles"
+@using System.Text.Json
+@using System.Linq
+@attribute [Authorize(Roles = "SuperAdmin")]
+@inject HttpClient Http
+
+<h3 class="mb-4">User Roles</h3>
+
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+    <Toast Visible="showSuccessToast"
+           Type="ToastType.Success"
+           Message="@(successMessage ?? string.Empty)"
+           OnClose="HideSuccessToast"
+           CssClass="shadow" />
+</div>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>Error:</strong> @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null" aria-label="Close"></button>
+    </div>
+}
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>User Name</th>
+                    <th>Email</th>
+                    <th>Roles</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (isLoadingUsers)
+                {
+                    <tr>
+                        <td colspan="4" class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <div class="mt-2 text-muted">Loading users...</div>
+                        </td>
+                    </tr>
+                }
+                else if (users.Count == 0)
+                {
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            No users found.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var user in users)
+                    {
+                        <tr>
+                            <td>@user.UserName</td>
+                            <td>@user.Email</td>
+                            <td>
+                                @if (user.Roles.Count == 0)
+                                {
+                                    <span class="badge bg-secondary">No roles</span>
+                                }
+                                else
+                                {
+                                    foreach (var role in user.Roles)
+                                    {
+                                        <span class="badge bg-primary me-1 mb-1">@role</span>
+                                    }
+                                }
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-primary"
+                                        disabled="@(roles.Count == 0)"
+                                        @onclick="() => OpenManageRolesModal(user)">
+                                    Manage Roles
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<Modal Show="showManageModal" Title="@modalTitle" OnClose="CloseManageRolesModal" ToastContent="ModalToast">
+    @if (selectedUser is null)
+    {
+        <p class="text-muted mb-0">Select a user to edit roles.</p>
+    }
+    else if (roles.Count == 0)
+    {
+        <div class="alert alert-info mb-0">Create roles first to assign them to users.</div>
+    }
+    else
+    {
+        <div class="mb-3">
+            <strong>@selectedUser.UserName</strong>
+            <div class="text-muted small">@selectedUser.Email</div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label d-block">Roles</label>
+            @foreach (var role in roles)
+            {
+                var checkboxId = $"role_{role.Id}";
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           id="@checkboxId"
+                           checked="@IsRoleSelected(role.Name)"
+                           @onchange="args => ToggleRole(role.Name, args)" />
+                    <label class="form-check-label" for="@checkboxId">@role.Name</label>
+                </div>
+            }
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+            <button class="btn btn-secondary" @onclick="CloseManageRolesModal">Cancel</button>
+            <button class="btn btn-primary" @onclick="SaveRolesAsync" disabled="@isSavingRoles">
+                @if (isSavingRoles)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                }
+                Apply Changes
+            </button>
+        </div>
+    }
+</Modal>
+
+@code {
+    private readonly JsonSerializerOptions jsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private List<UserWithRolesDto> users = new();
+    private List<RoleDto> roles = new();
+
+    private bool isLoadingUsers = true;
+    private bool showManageModal;
+    private bool showSuccessToast;
+    private bool isSavingRoles;
+
+    private string? errorMessage;
+    private string? modalErrorMessage;
+    private string? modalErrorCode;
+    private string? successMessage;
+    private string modalTitle = "Manage Roles";
+
+    private UserWithRolesDto? selectedUser;
+    private HashSet<string> selectedRoles = new(StringComparer.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadRolesAsync(), LoadUsersAsync());
+    }
+
+    private async Task LoadRolesAsync()
+    {
+        try
+        {
+            var response = await Http.GetAsync("api/Roles");
+            var apiResponse = await DeserializeAsync<List<RoleDto>>(response);
+            roles = apiResponse?.Data ?? new List<RoleDto>();
+
+            if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
+            {
+                errorMessage = apiResponse?.GetUserMessage($"Failed to load roles ({response.StatusCode}).");
+            }
+            else
+            {
+                errorMessage = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unexpected error loading roles: {ex.Message}";
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        try
+        {
+            isLoadingUsers = true;
+            var response = await Http.GetAsync("api/UserRoles/users-with-roles");
+            var apiResponse = await DeserializeAsync<List<UserWithRolesDto>>(response);
+            users = apiResponse?.Data ?? new List<UserWithRolesDto>();
+
+            if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
+            {
+                errorMessage = apiResponse?.GetUserMessage($"Failed to load users ({response.StatusCode}).");
+            }
+            else
+            {
+                errorMessage = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unexpected error loading users: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingUsers = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenManageRolesModal(UserWithRolesDto user)
+    {
+        selectedUser = user;
+        modalTitle = $"Manage Roles - {user.UserName}";
+        selectedRoles = new HashSet<string>(user.Roles ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+        showManageModal = true;
+        ClearModalError();
+    }
+
+    private void CloseManageRolesModal()
+    {
+        showManageModal = false;
+        selectedUser = null;
+        selectedRoles.Clear();
+        ClearModalError();
+    }
+
+    private bool IsRoleSelected(string? roleName) =>
+        !string.IsNullOrWhiteSpace(roleName) && selectedRoles.Contains(roleName);
+
+    private void ToggleRole(string? roleName, ChangeEventArgs args)
+    {
+        if (string.IsNullOrWhiteSpace(roleName))
+        {
+            return;
+        }
+
+        var isChecked = args?.Value is bool boolValue
+            ? boolValue
+            : bool.TryParse(args?.Value?.ToString(), out var parsed) && parsed;
+
+        if (isChecked)
+        {
+            selectedRoles.Add(roleName);
+        }
+        else
+        {
+            selectedRoles.Remove(roleName);
+        }
+    }
+
+    private async Task SaveRolesAsync()
+    {
+        if (selectedUser == null)
+        {
+            return;
+        }
+
+        var currentRoles = selectedUser.Roles ?? new List<string>();
+        var toAssign = selectedRoles.Except(currentRoles, StringComparer.OrdinalIgnoreCase).ToList();
+        var toRemove = currentRoles.Except(selectedRoles, StringComparer.OrdinalIgnoreCase).ToList();
+
+        if (toAssign.Count == 0 && toRemove.Count == 0)
+        {
+            showManageModal = false;
+            ShowSuccessToast("No role changes to apply.");
+            return;
+        }
+
+        try
+        {
+            isSavingRoles = true;
+            foreach (var roleName in toAssign)
+            {
+                var payload = new AssignRoleDto
+                {
+                    UserId = selectedUser.UserId,
+                    RoleIdOrName = roleName
+                };
+
+                var response = await Http.PostAsJsonAsync("api/UserRoles/assign", payload);
+                var apiResponse = await DeserializeAsync<object>(response);
+                if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
+                {
+                    ShowModalError(apiResponse?.GetUserMessage($"Failed to assign role {roleName} ({response.StatusCode})."),
+                        apiResponse?.ErrorCode);
+                    return;
+                }
+            }
+
+            foreach (var roleName in toRemove)
+            {
+                var payload = new RemoveRoleDto
+                {
+                    UserId = selectedUser.UserId,
+                    RoleIdOrName = roleName
+                };
+
+                var response = await Http.PostAsJsonAsync("api/UserRoles/remove", payload);
+                var apiResponse = await DeserializeAsync<object>(response);
+                if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
+                {
+                    ShowModalError(apiResponse?.GetUserMessage($"Failed to remove role {roleName} ({response.StatusCode})."),
+                        apiResponse?.ErrorCode);
+                    return;
+                }
+            }
+
+            showManageModal = false;
+            await LoadUsersAsync();
+            ShowSuccessToast("Roles updated successfully");
+        }
+        catch (Exception ex)
+        {
+            ShowModalError($"Unexpected error updating roles: {ex.Message}", "EXCEPTION");
+        }
+        finally
+        {
+            isSavingRoles = false;
+        }
+    }
+
+    private RenderFragment ModalToast => builder =>
+    {
+        if (string.IsNullOrWhiteSpace(modalErrorMessage))
+        {
+            return;
+        }
+
+        builder.OpenComponent<Toast>(0);
+        builder.AddAttribute(1, "Visible", true);
+        builder.AddAttribute(2, "Type", ToastType.Error);
+        builder.AddAttribute(3, "Message", modalErrorMessage);
+        builder.AddAttribute(4, "Code", modalErrorCode);
+        builder.AddAttribute(5, "OnClose", EventCallback.Factory.Create(this, ClearModalError));
+        builder.AddAttribute(6, "CssClass", "w-100 mb-0");
+        builder.CloseComponent();
+    };
+
+    private void ShowModalError(string? message, string? code = null)
+    {
+        modalErrorMessage = message ?? "An unknown error occurred.";
+        modalErrorCode = code;
+        StateHasChanged();
+    }
+
+    private void ClearModalError()
+    {
+        modalErrorMessage = null;
+        modalErrorCode = null;
+    }
+
+    private void ShowSuccessToast(string message)
+    {
+        successMessage = message;
+        showSuccessToast = true;
+        StateHasChanged();
+    }
+
+    private void HideSuccessToast()
+    {
+        successMessage = null;
+        showSuccessToast = false;
+        StateHasChanged();
+    }
+
+    private async Task<ApiResponse<T>?> DeserializeAsync<T>(HttpResponseMessage response)
+    {
+        try
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<ApiResponse<T>>(content, jsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+}

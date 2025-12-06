@@ -5,7 +5,7 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
   "mainAssemblyName": "BookDashboardBlazor",
   "applicationEnvironment": "Development",
   "resources": {
-    "hash": "sha256-NTs0uAfi8IdJcyM3zzPGwF6G0HFSNZIqjELuMVhgwdQ=",
+    "hash": "sha256-D1Vk4xuga1CPxnKdVFbf76/575t4MyqF+Tdj2J/bdEI=",
     "jsModuleNative": [
       {
         "name": "dotnet.native.xanz2e7ksm.js"
@@ -156,6 +156,11 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
         "virtualPath": "Microsoft.Extensions.FileSystemGlobbing.wasm",
         "name": "Microsoft.Extensions.FileSystemGlobbing.4cqycihgg0.wasm",
         "integrity": "sha256-1N2/rCQl/eAmYr1rfjJ32aMFRrX+RN35cCdm1VkbWGo="
+      },
+      {
+        "virtualPath": "Microsoft.Extensions.Http.wasm",
+        "name": "Microsoft.Extensions.Http.xy2ji5w849.wasm",
+        "integrity": "sha256-N+Tzkk/w6KHM7RAL+KgJZSEePxW2/p5DHYG8y6zUPx0="
       },
       {
         "virtualPath": "Microsoft.Extensions.Logging.wasm",
@@ -1049,15 +1054,15 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
       },
       {
         "virtualPath": "BookDashboardBlazor.wasm",
-        "name": "BookDashboardBlazor.wsv2jg6zyb.wasm",
-        "integrity": "sha256-gGAOvOZ1Va8rgY1mdQXFGIFNapo6VaWAz4kxBSo4oyw="
+        "name": "BookDashboardBlazor.gbjvhhjkpu.wasm",
+        "integrity": "sha256-dMckhUUXWkzdZFMfoazRYELSxRS3Dml2ci04kHj5vQQ="
       }
     ],
     "pdb": [
       {
         "virtualPath": "BookDashboardBlazor.pdb",
-        "name": "BookDashboardBlazor.zv4m4jz451.pdb",
-        "integrity": "sha256-wV2uejF4CK3M0JxwI04GsQ0Tn7o/6wiyB34l6n3jcT0="
+        "name": "BookDashboardBlazor.j8yi3cc1wa.pdb",
+        "integrity": "sha256-Le+qEJhN/BOe8EGztcasmXBA1g/9kkkD2Koog0rrTm4="
       }
     ],
     "libraryInitializers": [

@@ -4,21 +4,20 @@ using BookDashboardBlazor;
 using BookDashboardBlazor.Services;
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
+using System.Net.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddScoped<AuthHeaderHandler>();
-builder.Services.AddScoped(sp =>
+builder.Services.AddHttpClient("Api", client =>
 {
-    var handler = sp.GetRequiredService<AuthHeaderHandler>();
-    handler.InnerHandler = new HttpClientHandler();
-    return new HttpClient(handler)
-    {
-        BaseAddress = new Uri("http://localhost:5069/")
-    };
-});
+    client.BaseAddress = new Uri("http://localhost:5069/");
+}).AddHttpMessageHandler<AuthHeaderHandler>();
+
+builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("Api"));
 builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();

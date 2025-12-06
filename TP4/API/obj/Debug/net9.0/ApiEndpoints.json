@@ -1,7 +1,7 @@
 [
   {
     "ContainingType": "API.Controllers.AccountController",
-    "Method": "login",
+    "Method": "Login",
     "RelativePath": "api/Account/login",
     "HttpMethod": "POST",
     "IsController": true,

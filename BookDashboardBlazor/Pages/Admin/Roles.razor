@@ -1,0 +1,416 @@
+@page "/admin/roles"
+@using System.Text.Json
+@using System.Net
+@using System.Security.Claims
+@attribute [Authorize(Roles = "SuperAdmin")]
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
+
+<h3 class="mb-4">Roles</h3>
+
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+    <Toast Visible="showSuccessToast"
+           Type="ToastType.Success"
+           Message="@(successMessage ?? string.Empty)"
+           OnClose="HideSuccessToast"
+           CssClass="shadow" />
+</div>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>Error:</strong> @errorMessage
+        <button type="button" class="btn-close" aria-label="Close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+<div class="d-flex justify-content-end mb-3">
+    <button class="btn btn-primary" @onclick="OpenCreateModal">
+        <span class="me-2">➕</span>Add Role
+    </button>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Id</th>
+                    <th>Name</th>
+                    <th>Normalized</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (isLoading)
+                {
+                    <tr>
+                        <td colspan="4" class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <div class="mt-2 text-muted">Loading roles...</div>
+                        </td>
+                    </tr>
+                }
+                else if (roles.Count == 0)
+                {
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            No roles found. Create the first one to get started.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var role in roles)
+                    {
+                        <tr>
+                            <td class="align-middle">@role.Id</td>
+                            <td class="align-middle">@role.Name</td>
+                            <td class="align-middle text-uppercase text-muted">@role.NormalizedName</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => OpenEditModal(role)">
+                                    Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => AskDelete(role)">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<Modal Show="showRoleModal" Title="@modalTitle" OnClose="CloseRoleModal" ToastContent="ModalToast">
+    <EditForm Model="@roleForm" OnValidSubmit="SaveRoleAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label class="form-label">Name</label>
+            <InputText class="form-control" @bind-Value="roleForm.Name" />
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-secondary" @onclick="CloseRoleModal">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+                @(string.IsNullOrEmpty(editingRoleId) ? "Create" : "Save")
+            </button>
+        </div>
+    </EditForm>
+</Modal>
+
+<Modal Show="showDeleteModal" Title="Delete Role" OnClose="CloseDeleteModal" ToastContent="ModalToast">
+    <p class="mb-0">
+        Are you sure you want to delete the role
+        <strong>@rolePendingDelete?.Name</strong>?
+    </p>
+    <p class="text-muted small mb-4">
+        Roles that are assigned to users cannot be deleted.
+    </p>
+    <div class="d-flex justify-content-end gap-2">
+        <button class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
+        <button class="btn btn-danger" @onclick="ConfirmDeleteAsync">Delete</button>
+    </div>
+</Modal>
+
+@code {
+    private readonly JsonSerializerOptions jsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private List<RoleDto> roles = new();
+    private RoleCreateDto roleForm = new();
+    private string? editingRoleId;
+    private RoleDto? rolePendingDelete;
+    private bool isLoading = true;
+
+    private bool showRoleModal;
+    private bool showDeleteModal;
+    private string modalTitle = "Add Role";
+
+    private string? errorMessage;
+    private string? modalErrorMessage;
+    private string? modalErrorCode;
+    private bool showSuccessToast;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LogAuthStateAsync("OnInitializedAsync");
+        await LogDebugEndpointAsync();
+        await LoadRolesAsync();
+    }
+
+    private async Task LoadRolesAsync()
+    {
+        try
+        {
+            isLoading = true;
+            var response = await Http.GetAsync("api/Roles");
+            var apiResponse = await DeserializeAsync<List<RoleDto>>(response);
+            roles = apiResponse?.Data ?? new List<RoleDto>();
+
+            if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
+            {
+                errorMessage = apiResponse?.GetUserMessage($"Failed to load roles ({response.StatusCode}).");
+            }
+            else
+            {
+                errorMessage = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unexpected error loading roles: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        editingRoleId = null;
+        modalTitle = "Add Role";
+        roleForm = new RoleCreateDto();
+        showRoleModal = true;
+        ClearModalError();
+    }
+
+    private void OpenEditModal(RoleDto role)
+    {
+        editingRoleId = role.Id;
+        modalTitle = $"Edit Role ({role.Name})";
+        roleForm = new RoleCreateDto { Name = role.Name };
+        showRoleModal = true;
+        ClearModalError();
+    }
+
+    private void CloseRoleModal()
+    {
+        showRoleModal = false;
+        ClearModalError();
+    }
+
+    private void AskDelete(RoleDto role)
+    {
+        rolePendingDelete = role;
+        showDeleteModal = true;
+        ClearModalError();
+    }
+
+    private void CloseDeleteModal()
+    {
+        rolePendingDelete = null;
+        showDeleteModal = false;
+        ClearModalError();
+    }
+
+    private async Task SaveRoleAsync()
+    {
+        try
+        {
+            HttpResponseMessage response;
+            if (string.IsNullOrEmpty(editingRoleId))
+            {
+                response = await Http.PostAsJsonAsync("api/Roles", roleForm);
+            }
+            else
+            {
+                response = await Http.PutAsJsonAsync($"api/Roles/{editingRoleId}", new RoleUpdateDto { Name = roleForm.Name });
+            }
+
+            var apiResponse = await DeserializeAsync<RoleDto>(response);
+            if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
+            {
+                ShowModalError(apiResponse?.GetUserMessage($"Failed to save role ({response.StatusCode})."),
+                    apiResponse?.ErrorCode);
+                return;
+            }
+
+            showRoleModal = false;
+            await LoadRolesAsync();
+            ShowSuccessToast(string.IsNullOrEmpty(editingRoleId) ? "Role created successfully" : "Role updated successfully");
+        }
+        catch (Exception ex)
+        {
+            ShowModalError($"Unexpected error saving role: {ex.Message}", "EXCEPTION");
+        }
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (rolePendingDelete == null)
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await Http.DeleteAsync($"api/Roles/{rolePendingDelete.Id}");
+            var apiResponse = await DeserializeAsync<object>(response);
+            if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
+            {
+                ShowModalError(apiResponse?.GetUserMessage($"Failed to delete role ({response.StatusCode})."),
+                    apiResponse?.ErrorCode);
+                return;
+            }
+
+            showDeleteModal = false;
+            rolePendingDelete = null;
+            await LoadRolesAsync();
+            ShowSuccessToast("Role deleted successfully");
+        }
+        catch (Exception ex)
+        {
+            ShowModalError($"Unexpected error deleting role: {ex.Message}", "EXCEPTION");
+        }
+    }
+
+    private RenderFragment ModalToast => builder =>
+    {
+        if (string.IsNullOrWhiteSpace(modalErrorMessage))
+        {
+            return;
+        }
+
+        builder.OpenComponent<Toast>(0);
+        builder.AddAttribute(1, "Visible", true);
+        builder.AddAttribute(2, "Type", ToastType.Error);
+        builder.AddAttribute(3, "Message", modalErrorMessage);
+        builder.AddAttribute(4, "Code", modalErrorCode);
+        builder.AddAttribute(5, "OnClose", EventCallback.Factory.Create(this, ClearModalError));
+        builder.AddAttribute(6, "CssClass", "w-100 mb-0");
+        builder.CloseComponent();
+    };
+
+    private void ShowModalError(string? message, string? code = null)
+    {
+        modalErrorMessage = message ?? "An unknown error occurred.";
+        modalErrorCode = code;
+        StateHasChanged();
+    }
+
+    private void ClearModalError()
+    {
+        modalErrorMessage = null;
+        modalErrorCode = null;
+    }
+
+    private void ShowSuccessToast(string message)
+    {
+        successMessage = message;
+        showSuccessToast = true;
+        StateHasChanged();
+    }
+
+    private void HideSuccessToast()
+    {
+        showSuccessToast = false;
+        successMessage = null;
+        StateHasChanged();
+    }
+
+    private async Task<ApiResponse<T>?> DeserializeAsync<T>(HttpResponseMessage response)
+    {
+        try
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<ApiResponse<T>>(content, jsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private async Task LogAuthStateAsync(string context)
+    {
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = state.User;
+            var roles = user.Claims
+                .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+                .Select(c => c.Value)
+                .ToList();
+
+            await JS.InvokeVoidAsync("console.log", "[Roles] AuthState", new
+            {
+                Context = context,
+                IsAuthenticated = user.Identity?.IsAuthenticated,
+                Name = user.Identity?.Name,
+                Roles = roles
+            });
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("console.error", "[Roles] AuthState logging failed", ex.Message);
+        }
+    }
+
+    private async Task LogDebugEndpointAsync()
+    {
+        try
+        {
+            var response = await Http.GetAsync("api/debug/me");
+            var body = await response.Content.ReadAsStringAsync();
+            await JS.InvokeVoidAsync("console.log", "[Roles] /api/debug/me", new
+            {
+                Status = (int)response.StatusCode,
+                Body = body
+            });
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("console.error", "[Roles] Debug endpoint failed", ex.Message);
+        }
+    }
+
+    private async Task LogHttpFailureAsync(HttpResponseMessage response, string context, string? apiMessage)
+    {
+        try
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = state.User;
+            var roles = user.Claims
+                .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+                .Select(c => c.Value)
+                .ToList();
+
+            await JS.InvokeVoidAsync("console.error", "[Roles] API failure", new
+            {
+                Context = context,
+                Status = (int)response.StatusCode,
+                Reason = response.ReasonPhrase,
+                Body = content,
+                ApiMessage = apiMessage,
+                User = user.Identity?.Name,
+                Roles = roles
+            });
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("console.error", "[Roles] API failure logging failed", ex.Message);
+        }
+    }
+
+    private async Task LogExceptionAsync(string context, Exception exception)
+    {
+        await JS.InvokeVoidAsync("console.error", "[Roles] Exception", new
+        {
+            Context = context,
+            exception.Message,
+            exception.StackTrace
+        });
+    }
+}

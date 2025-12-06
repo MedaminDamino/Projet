@@ -1,0 +1,8 @@
+wwwroot\uploads\books\ceea72f8-c846-4fd1-9346-66c28a37c9f5.png
+wwwroot\uploads\books\b1efc565-0d2e-40a4-94c8-1417c7f6fdba.png
+wwwroot\uploads\books\9e6f7641-1ea6-463c-9362-e7aa2c21af71.png
+wwwroot\uploads\books\9beebb6c-ac9a-4480-b4df-b1044405a8c1.png
+wwwroot\uploads\books\6af73778-49d5-410a-bff0-9f2592dad308.png
+wwwroot\uploads\books\5631c964-f8ad-45c8-8f31-fb19e77525fd.png
+wwwroot\uploads\books\2e7044b2-4ad2-4e8c-8ee5-73bbdb283ba0.png
+wwwroot\uploads\books\22dcac1a-7996-4838-a1ca-b38603fda3ec.jpg

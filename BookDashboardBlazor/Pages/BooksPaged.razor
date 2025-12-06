@@ -18,12 +18,7 @@
 
 @if (isLoading)
 {
-    <div class="text-center py-5">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-        <p class="mt-2">Loading books...</p>
-    </div>
+    <LoadingSpinner FullScreen="true" Label="Loading books..." />
 }
 else
 {
@@ -154,7 +149,17 @@ else
             <label>Description</label>
             <InputTextArea @bind-Value="currentBook.Description" class="form-control" />
         </div>
-        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+            @if (isSaving)
+            {
+                <LoadingSpinner Inline="true" ShowLabel="false" Size="18" CssClass="me-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>Save</span>
+            }
+        </button>
     </EditForm>
 </Modal>
 
@@ -167,6 +172,7 @@ else
     private bool showModal = false;
     private string modalTitle = "Add Book";
     private bool isLoading = false;
+    private bool isSaving = false;
     private string? errorMessage;
 
     private PaginationModel pagination = new() { Page = 1, PageSize = 10 };
@@ -283,6 +289,8 @@ else
 
     private async Task SaveBook()
     {
+        isSaving = true;
+
         try
         {
             if (currentBook.BookId == 0)
@@ -309,6 +317,10 @@ else
         catch (Exception ex)
         {
             errorMessage = $"Error saving book: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
         }
     }
 
