@@ -23,7 +23,40 @@ public class AuthHeaderHandler : DelegatingHandler
             var token = await _localStorage.GetItemAsStringAsync("token");
             if (!string.IsNullOrWhiteSpace(token))
             {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Replace("\"", ""));
+                // Remove quotes and trim whitespace
+                var cleanToken = token.Replace("\"", "").Trim();
+                if (!string.IsNullOrWhiteSpace(cleanToken))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", cleanToken);
+                    
+                    // Debug logging for Review endpoints
+                    if (request.RequestUri?.ToString().Contains("/api/Review/") == true)
+                    {
+                        Console.WriteLine($"[AuthHeaderHandler] Added Bearer token to {request.Method} {request.RequestUri}");
+                        Console.WriteLine($"[AuthHeaderHandler] Token length: {cleanToken.Length}, First 20 chars: {cleanToken.Substring(0, Math.Min(20, cleanToken.Length))}...");
+                    }
+                }
+                else
+                {
+                    if (request.RequestUri?.ToString().Contains("/api/Review/") == true)
+                    {
+                        Console.WriteLine($"[AuthHeaderHandler] Token was empty after cleaning for {request.Method} {request.RequestUri}");
+                    }
+                }
+            }
+            else
+            {
+                if (request.RequestUri?.ToString().Contains("/api/Review/") == true)
+                {
+                    Console.WriteLine($"[AuthHeaderHandler] No token found in localStorage for {request.Method} {request.RequestUri}");
+                }
+            }
+        }
+        else
+        {
+            if (request.RequestUri?.ToString().Contains("/api/Review/") == true)
+            {
+                Console.WriteLine($"[AuthHeaderHandler] Authorization header already present for {request.Method} {request.RequestUri}");
             }
         }
 
