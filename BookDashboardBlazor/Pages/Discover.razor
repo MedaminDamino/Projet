@@ -1,8 +1,31 @@
 @page "/discover"
+@implements IDisposable
 @inject HttpClient Http
-@using BookDashboardBlazor.Models
+@using BookDashboardBlazor.Services
+@inject ReviewService ReviewService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
 
 <PageTitle>Discover Books</PageTitle>
+
+<style>
+    .user-rating .star-rating {
+        gap: 0.2rem;
+    }
+
+    .user-rating .star-rating .bi {
+        font-size: 1.4rem;
+        transition: color 0.2s ease;
+    }
+</style>
+
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+    <Toast Visible="showRatingToast"
+           Type="ratingToastType"
+           Message="@(ratingToastMessage ?? string.Empty)"
+           OnClose="HideRatingToast"
+           CssClass="shadow" />
+</div>
 
 <div class="discover-page">
     <div class="container-xxl">
@@ -142,7 +165,16 @@
                                         <p class="text-secondary small flex-grow-1 overflow-hidden">
                                             @Truncate(book.Description, 110)
                                         </p>
-                                        <div class="d-flex align-items-center justify-content-between mt-2">
+                                        
+                                        @{ var userRating = GetUserRating(book.BookId); }
+                                        <div class="user-rating my-2 d-flex justify-content-center align-items-center gap-1 flex-wrap"
+                                             style="min-height: 32px;"
+                                             title="@GetRatingTooltip(userRating)">
+                                            <StarRating Value="@userRating"
+                                                        ValueChanged="@((int rating) => SetRatingAsync(book.BookId, rating))" />
+                                        </div>
+
+                                        <div class="d-flex align-items-center justify-content-between mt-auto">
                                             <div class="d-flex align-items-center gap-2 text-muted small">
                                                 <i class="bi bi-star-fill text-warning"></i>
                                                 <span>@book.AverageRating.ToString("0.0")</span>
@@ -186,8 +218,15 @@
     private List<Author> authors = new();
     private List<Genre> genres = new();
     private Dictionary<int, bool> selectedGenres = new();
+    private Dictionary<int, int> _userRatings = new();
+    private bool isAuthenticated;
+    private bool _hasShownLoginReminder;
+    private const string LoginRequiredMessage = "Login to rate this book.";
     private const string PlaceholderImage = "/images/book-placeholder.svg";
     private string ImageErrorFallbackJs => $"this.onerror=null; this.src='{PlaceholderImage}';";
+    private bool showRatingToast;
+    private string? ratingToastMessage;
+    private ToastType ratingToastType = ToastType.Success;
 
     private string searchQuery = string.Empty;
     private int _minRating = 0;
@@ -227,8 +266,37 @@
 
     protected override async Task OnInitializedAsync()
     {
+        AuthStateProvider.AuthenticationStateChanged += HandleAuthenticationStateChanged;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity?.IsAuthenticated ?? false;
+
         await LoadGenresAndAuthors();
         await LoadBooks();
+    }
+
+    private async void HandleAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        var authState = await task;
+        var newIsAuthenticated = authState.User.Identity?.IsAuthenticated ?? false;
+
+        if (newIsAuthenticated == isAuthenticated)
+        {
+            return;
+        }
+
+        isAuthenticated = newIsAuthenticated;
+        _hasShownLoginReminder = false;
+
+        if (!isAuthenticated)
+        {
+            _hasShownLoginReminder = false;
+            ClearAllRatings();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        await LoadUserRatings(books);
     }
 
     private async Task LoadGenresAndAuthors()
@@ -329,6 +397,8 @@
 
             hasMoreBooks = newBooks.Count == PageSize;
             currentPage++;
+            
+            _ = LoadUserRatings(newBooks);
         }
         catch
         {
@@ -394,6 +464,181 @@
         return value.Length <= maxLength ? value : value.Substring(0, maxLength).TrimEnd() + "...";
     }
 
+    private async Task SetRatingAsync(int bookId, int rating)
+    {
+        if (!isAuthenticated)
+        {
+            ShowLoginToast();
+            return;
+        }
+
+        var normalizedRating = Math.Clamp(rating, 1, 5);
+        var previousRating = GetUserRating(bookId);
+        SetLocalRating(bookId, normalizedRating);
+        StateHasChanged();
+
+        var result = await ReviewService.RateBookAsync(bookId, normalizedRating);
+        if (!result.Success)
+        {
+            RestoreLocalRating(bookId, previousRating);
+            StateHasChanged();
+
+            if (result.IsUnauthorized)
+            {
+                isAuthenticated = false;
+                ClearAllRatings();
+                ShowLoginToast();
+            }
+            else
+            {
+                ShowRatingToast(result.Message, ToastType.Error);
+            }
+
+            return;
+        }
+
+        var savedRating = result.Data?.Rating ?? normalizedRating;
+        SetLocalRating(bookId, savedRating);
+        StateHasChanged();
+        ShowRatingToast(result.Message, ToastType.Success);
+    }
+
+    private async Task LoadUserRatings(IEnumerable<BookDiscover>? sourceBooks)
+    {
+        if (!isAuthenticated || sourceBooks == null)
+        {
+            return;
+        }
+
+        var booksToProcess = sourceBooks.ToList();
+        if (!booksToProcess.Any())
+        {
+            return;
+        }
+
+        var tasks = booksToProcess.Select(b => LoadUserRatingAsync(b.BookId));
+        await Task.WhenAll(tasks);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadUserRatingAsync(int bookId)
+    {
+        var result = await ReviewService.GetUserRatingAsync(bookId);
+        if (!result.Success)
+        {
+            if (result.IsUnauthorized)
+            {
+                // Silently handle 401 on initial load - don't show toast
+                // Only show toast when user actually interacts (clicks a star)
+                isAuthenticated = false;
+                ClearAllRatings();
+                // Do NOT show toast here - this is background loading
+            }
+            else
+            {
+                Console.WriteLine($"[Discover] Failed to load rating for book {bookId}: {result.Message}");
+            }
+
+            return;
+        }
+
+        _hasShownLoginReminder = false;
+
+        var rating = result.Data?.Rating ?? 0;
+        if (rating > 0)
+        {
+            SetLocalRating(bookId, rating);
+        }
+        else
+        {
+            ClearLocalRating(bookId);
+        }
+    }
+
+    private int GetUserRating(int bookId)
+    {
+        lock (_userRatings)
+        {
+            return _userRatings.TryGetValue(bookId, out var rating) ? rating : 0;
+        }
+    }
+
+    private void SetLocalRating(int bookId, int rating)
+    {
+        lock (_userRatings)
+        {
+            if (rating <= 0)
+            {
+                _userRatings.Remove(bookId);
+            }
+            else
+            {
+                _userRatings[bookId] = rating;
+            }
+        }
+    }
+
+    private void ClearLocalRating(int bookId)
+    {
+        lock (_userRatings)
+        {
+            _userRatings.Remove(bookId);
+        }
+    }
+
+    private void ClearAllRatings()
+    {
+        lock (_userRatings)
+        {
+            _userRatings.Clear();
+        }
+    }
+
+    private void RestoreLocalRating(int bookId, int previousRating)
+    {
+        if (previousRating > 0)
+        {
+            SetLocalRating(bookId, previousRating);
+        }
+        else
+        {
+            ClearLocalRating(bookId);
+        }
+    }
+
+    private string GetRatingTooltip(int currentRating)
+    {
+        if (!isAuthenticated)
+        {
+            return LoginRequiredMessage;
+        }
+
+        return currentRating > 0
+            ? $"You rated {currentRating}/5"
+            : "Tap a star to rate this book";
+    }
+
+    private void ShowLoginToast()
+    {
+        _hasShownLoginReminder = true;
+        ShowRatingToast(LoginRequiredMessage, ToastType.Error);
+    }
+
+    private void ShowRatingToast(string message, ToastType type)
+    {
+        ratingToastMessage = message;
+        ratingToastType = type;
+        showRatingToast = true;
+        StateHasChanged();
+    }
+
+    private void HideRatingToast()
+    {
+        showRatingToast = false;
+        ratingToastMessage = null;
+        StateHasChanged();
+    }
+
     private string ResolveImageUrl(string? url)
     {
         if (string.IsNullOrWhiteSpace(url))
@@ -421,5 +666,13 @@
         {
             return PlaceholderImage;
         }
+    }
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= HandleAuthenticationStateChanged;
+        _debounceTimer?.Stop();
+        _debounceTimer?.Dispose();
+        _debounceTimer = null;
     }
 }
