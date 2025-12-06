@@ -25,5 +25,6 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<BookPaginationService>();
 builder.Services.AddScoped<BookDiscoverService>();
 builder.Services.AddScoped<ReadingListService>();
+builder.Services.AddScoped<ReviewService>();
 
 await builder.Build().RunAsync();

@@ -273,6 +273,43 @@
 
         await LoadGenresAndAuthors();
         await LoadBooks();
+        
+        // Ensure user ratings are loaded after books are loaded
+        if (isAuthenticated && books.Any())
+        {
+            await LoadUserRatings(books);
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Handle navigation back to the page
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var wasAuthenticated = isAuthenticated;
+        isAuthenticated = authState.User.Identity?.IsAuthenticated ?? false;
+
+        // If user logged out, clear ratings
+        if (!isAuthenticated && wasAuthenticated)
+        {
+            ClearAllRatings();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        // If user is authenticated, ensure books are loaded and ratings are loaded
+        if (isAuthenticated)
+        {
+            // If books haven't been loaded yet, load them first
+            if (!books.Any() && !isLoading)
+            {
+                await LoadBooks();
+            }
+            // If books are already loaded, reload ratings to ensure they're current
+            else if (books.Any())
+            {
+                await LoadUserRatings(books);
+            }
+        }
     }
 
     private async void HandleAuthenticationStateChanged(Task<AuthenticationState> task)
@@ -398,7 +435,21 @@
             hasMoreBooks = newBooks.Count == PageSize;
             currentPage++;
             
-            _ = LoadUserRatings(newBooks);
+            // Always load user ratings after books are loaded (if authenticated)
+            // This ensures ratings are restored when returning to the page
+            if (isAuthenticated)
+            {
+                if (append)
+                {
+                    // For append, only load ratings for new books
+                    await LoadUserRatings(newBooks);
+                }
+                else
+                {
+                    // For initial load, load ratings for all books
+                    await LoadUserRatings(books);
+                }
+            }
         }
         catch
         {
@@ -474,10 +525,14 @@
 
         var normalizedRating = Math.Clamp(rating, 1, 5);
         var previousRating = GetUserRating(bookId);
+        Console.WriteLine($"[Discover] SetRatingAsync - BookId: {bookId}, Rating: {normalizedRating}, Previous: {previousRating}");
+        
         SetLocalRating(bookId, normalizedRating);
         StateHasChanged();
 
         var result = await ReviewService.RateBookAsync(bookId, normalizedRating);
+        Console.WriteLine($"[Discover] SetRatingAsync result - Success: {result.Success}, IsUnauthorized: {result.IsUnauthorized}, Message: {result.Message}");
+        
         if (!result.Success)
         {
             RestoreLocalRating(bookId, previousRating);
@@ -499,6 +554,7 @@
 
         var savedRating = result.Data?.Rating ?? normalizedRating;
         SetLocalRating(bookId, savedRating);
+        Console.WriteLine($"[Discover] Rating saved successfully - BookId: {bookId}, Saved Rating: {savedRating}");
         StateHasChanged();
         ShowRatingToast(result.Message, ToastType.Success);
     }
@@ -507,50 +563,66 @@
     {
         if (!isAuthenticated || sourceBooks == null)
         {
+            Console.WriteLine($"[Discover] LoadUserRatings skipped - isAuthenticated: {isAuthenticated}, sourceBooks: {sourceBooks != null}");
             return;
         }
 
         var booksToProcess = sourceBooks.ToList();
         if (!booksToProcess.Any())
         {
+            Console.WriteLine("[Discover] LoadUserRatings skipped - no books to process");
             return;
         }
 
+        Console.WriteLine($"[Discover] Loading ratings for {booksToProcess.Count} books");
         var tasks = booksToProcess.Select(b => LoadUserRatingAsync(b.BookId));
         await Task.WhenAll(tasks);
+        Console.WriteLine($"[Discover] Finished loading ratings. Current _userRatings count: {_userRatings.Count}");
         await InvokeAsync(StateHasChanged);
     }
 
     private async Task LoadUserRatingAsync(int bookId)
     {
-        var result = await ReviewService.GetUserRatingAsync(bookId);
-        if (!result.Success)
+        try
         {
-            if (result.IsUnauthorized)
+            var result = await ReviewService.GetUserRatingAsync(bookId);
+            
+            Console.WriteLine($"[Discover] LoadUserRatingAsync - BookId: {bookId}, Success: {result.Success}, IsUnauthorized: {result.IsUnauthorized}, Data: {(result.Data != null ? $"Rating={result.Data.Rating}, BookId={result.Data.BookId}" : "null")}");
+            
+            // GetUserRatingAsync now returns success with rating 0 for unauthorized, so we always process the result
+            if (result.Success && result.Data != null)
             {
-                // Silently handle 401 on initial load - don't show toast
-                // Only show toast when user actually interacts (clicks a star)
+                var rating = result.Data.Rating;
+                Console.WriteLine($"[Discover] Processing rating {rating} for book {bookId}");
+                if (rating > 0)
+                {
+                    SetLocalRating(bookId, rating);
+                    Console.WriteLine($"[Discover] ✓ Set rating for book {bookId}: {rating} (Current _userRatings count: {_userRatings.Count})");
+                }
+                else
+                {
+                    ClearLocalRating(bookId);
+                    Console.WriteLine($"[Discover] Cleared rating for book {bookId} (rating was 0)");
+                }
+            }
+            else if (result.IsUnauthorized)
+            {
+                // This should rarely happen now since GetUserRatingAsync returns success with rating 0
+                // But handle it gracefully if it does
+                Console.WriteLine($"[Discover] Unauthorized for book {bookId}");
                 isAuthenticated = false;
-                ClearAllRatings();
-                // Do NOT show toast here - this is background loading
+                ClearLocalRating(bookId);
             }
             else
             {
+                // On failure, just clear the rating for this book
+                ClearLocalRating(bookId);
                 Console.WriteLine($"[Discover] Failed to load rating for book {bookId}: {result.Message}");
             }
-
-            return;
         }
-
-        _hasShownLoginReminder = false;
-
-        var rating = result.Data?.Rating ?? 0;
-        if (rating > 0)
+        catch (Exception ex)
         {
-            SetLocalRating(bookId, rating);
-        }
-        else
-        {
+            Console.WriteLine($"[Discover] Exception loading rating for book {bookId}: {ex.Message}");
             ClearLocalRating(bookId);
         }
     }

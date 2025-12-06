@@ -40,12 +40,24 @@ namespace API.Repositories
         }
 
         public async Task<bool> DeleteAsync(int id)
-        {
-            var author = await _context.Authors.FindAsync(id);
-            if (author == null) return false;
+{
+    var author = await _context.Authors
+        .Include(a => a.Books)
+        .FirstOrDefaultAsync(a => a.AuthorId == id);
 
-            _context.Authors.Remove(author);
-            return await _context.SaveChangesAsync() > 0;
+    if (author == null) return false;
+
+    if (author.Books.Any())
+        throw new InvalidOperationException("AUTHOR_IN_USE");
+
+    _context.Authors.Remove(author);
+    return await _context.SaveChangesAsync() > 0;
+}
+
+
+        public async Task<bool> HasBooksAsync(int authorId)
+        {
+            return await _context.Books.AnyAsync(b => b.AuthorId == authorId);
         }
     }
 }

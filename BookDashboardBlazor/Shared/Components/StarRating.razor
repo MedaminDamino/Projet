@@ -1,29 +1,32 @@
-<div class="star-rating">
-    @for (int i = 1; i <= 5; i++)
+<div class="star-rating d-flex align-items-center">
+    @for (var i = 1; i <= 5; i++)
     {
         var starValue = i;
-        var isFilled = IsReadOnly ? (i <= Math.Floor(Rating)) : (i <= Value);
-        var isHalf = IsReadOnly ? (i == Math.Ceiling(Rating) && Rating % 1 != 0) : false;
-
-        <span class="bi @(isHalf ? "bi-star-half" : isFilled ? "bi-star-fill" : "bi-star") @(IsReadOnly ? "" : "cursor-pointer") text-warning"
-              @onclick="() => SetRating(starValue)"
-              style="@(IsReadOnly ? "" : "cursor: pointer;")">
-        </span>
+        var isFilled = starValue <= Value;
+        <i class="bi @(isFilled ? "bi-star-fill text-warning" : "bi-star text-muted")"
+           role="button"
+           @onclick="() => OnClick(starValue)"
+           @onclick:stopPropagation="true">
+        </i>
     }
 </div>
 
 @code {
-    [Parameter] public double Rating { get; set; }
     [Parameter] public int Value { get; set; }
-    [Parameter] public bool IsReadOnly { get; set; } = false;
     [Parameter] public EventCallback<int> ValueChanged { get; set; }
+    [Parameter] public bool IsReadOnly { get; set; } = false;
 
-    private async Task SetRating(int rating)
+    private async Task OnClick(int rating)
     {
-        if (!IsReadOnly)
+        if (IsReadOnly)
         {
-            Value = rating;
-            await ValueChanged.InvokeAsync(Value);
+            return;
+        }
+
+        Value = rating;
+        if (ValueChanged.HasDelegate)
+        {
+            await ValueChanged.InvokeAsync(rating);
         }
     }
 }

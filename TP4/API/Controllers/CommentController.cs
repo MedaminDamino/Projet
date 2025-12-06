@@ -1,5 +1,7 @@
-﻿using API.Interfaces;
+﻿using API.Helpers;
+using API.Interfaces;
 using API.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
@@ -34,6 +36,7 @@ namespace API.Controllers
 
         // POST api/comment
         [HttpPost]
+        [Authorize(Roles = "SuperAdmin,Admin,User")]
         public async Task<IActionResult> Create(Comment comment)
         {
             comment.CreatedAt = DateTime.UtcNow;
@@ -45,6 +48,7 @@ namespace API.Controllers
 
         // PUT api/comment/5
         [HttpPut("{id}")]
+        [Authorize(Roles = "SuperAdmin,Admin,User")]
         public async Task<IActionResult> Update(int id, Comment updated)
         {
             var existing = await _repo.GetByIdAsync(id);
@@ -59,8 +63,11 @@ namespace API.Controllers
 
         // DELETE api/comment/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = "SuperAdmin,User")]
         public async Task<IActionResult> Delete(int id)
         {
+            // Note: Admin role is excluded - only SuperAdmin and User (for their own comments) can delete
+
             var deleted = await _repo.DeleteAsync(id);
             if (!deleted) return NotFound();
 

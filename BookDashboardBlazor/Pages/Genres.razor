@@ -2,7 +2,7 @@
 @using BookDashboardBlazor.Models
 @using System.Text.Json
 @inject HttpClient Http
-@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@attribute [Authorize]
 
 <h3>Genres</h3>
 
@@ -153,39 +153,25 @@
             }
 
             var jsonContent = await response.Content.ReadAsStringAsync();
-            ApiResponse<Genre>? apiResponse = null;
-            if (!string.IsNullOrWhiteSpace(jsonContent))
-            {
-                try
-                {
-                    apiResponse = JsonSerializer.Deserialize<ApiResponse<Genre>>(jsonContent, jsonOptions);
-                }
-                catch (JsonException ex)
-                {
-                    Console.WriteLine($"[Genres] JSON parse warning on save: {ex.Message}");
-                }
-            }
+            var serverMessage = DeserializeServerMessage<Genre>(jsonContent, "[Genres] SaveGenre");
 
             if (!response.IsSuccessStatusCode)
             {
-                ShowModalError(apiResponse?.GetUserMessage($"Failed to save genre (status {(int)response.StatusCode})."),
-                    apiResponse?.ErrorCode);
-                Console.WriteLine($"Error saving genre: {modalErrorMessage}");
-                return;
-            }
-
-            if (apiResponse is not null && !apiResponse.Success &&
-                (!string.IsNullOrWhiteSpace(apiResponse.Message) || !string.IsNullOrWhiteSpace(apiResponse.ErrorCode)))
-            {
-                ShowModalError(apiResponse.GetUserMessage($"Failed to save genre (status {(int)response.StatusCode})."),
-                    apiResponse.ErrorCode);
-                Console.WriteLine($"Error saving genre: {modalErrorMessage}");
+                var failureMessage = serverMessage?.GetMessageOr(BuildFallbackMessage("Failed to save genre", response))
+                                     ?? BuildFallbackMessage("Failed to save genre", response);
+                ShowModalError(failureMessage, "HTTP_ERROR");
+                Console.WriteLine($"Error saving genre: {failureMessage}");
                 return;
             }
 
             showModal = false;
             await LoadGenres();
-            ShowSuccessToast(isCreate ? "Genre created successfully" : "Genre updated successfully");
+            var toastMessage = serverMessage?.GetMessageOr(isCreate
+                ? "Genre created successfully."
+                : "Genre updated successfully.") ?? (isCreate
+                ? "Genre created successfully."
+                : "Genre updated successfully.");
+            ShowSuccessToast(toastMessage);
         }
         catch (Exception ex)
         {
@@ -211,33 +197,14 @@
         {
             var response = await Http.DeleteAsync($"api/Genre/{itemToDelete.GenreId}");
             var jsonContent = await response.Content.ReadAsStringAsync();
-            ApiResponse<object>? apiResponse = null;
-            if (!string.IsNullOrWhiteSpace(jsonContent))
-            {
-                try
-                {
-                    apiResponse = JsonSerializer.Deserialize<ApiResponse<object>>(jsonContent, jsonOptions);
-                }
-                catch (JsonException ex)
-                {
-                    Console.WriteLine($"[Genres] JSON parse warning on delete: {ex.Message}");
-                }
-            }
+            var serverMessage = DeserializeServerMessage<object>(jsonContent, "[Genres] ConfirmDelete");
 
             if (!response.IsSuccessStatusCode)
             {
-                ShowModalError(apiResponse?.GetUserMessage($"Error deleting genre: {response.StatusCode}"),
-                    apiResponse?.ErrorCode);
-                Console.WriteLine($"Error deleting genre: {modalErrorMessage}");
-                return;
-            }
-
-            if (apiResponse is not null && !apiResponse.Success &&
-                (!string.IsNullOrWhiteSpace(apiResponse.Message) || !string.IsNullOrWhiteSpace(apiResponse.ErrorCode)))
-            {
-                ShowModalError(apiResponse.GetUserMessage($"Error deleting genre: {response.StatusCode}"),
-                    apiResponse.ErrorCode);
-                Console.WriteLine($"Error deleting genre: {modalErrorMessage}");
+                var failureMessage = serverMessage?.GetMessageOr(BuildFallbackMessage("Error deleting genre", response))
+                                     ?? BuildFallbackMessage("Error deleting genre", response);
+                ShowModalError(failureMessage, "HTTP_ERROR");
+                Console.WriteLine($"Error deleting genre: {failureMessage}");
                 return;
             }
 
@@ -245,7 +212,8 @@
             itemToDelete = null;
             StateHasChanged();
             await LoadGenres();
-            ShowSuccessToast("Genre deleted successfully");
+            var toastMessage = serverMessage?.GetMessageOr("Genre deleted successfully.") ?? "Genre deleted successfully.";
+            ShowSuccessToast(toastMessage);
         }
         catch (Exception ex)
         {
@@ -307,4 +275,25 @@
         successMessage = null;
         StateHasChanged();
     }
+
+    private ServerMessage<T>? DeserializeServerMessage<T>(string json, string context)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<ServerMessage<T>>(json, jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"{context}: JSON parse warning {ex.Message}");
+            return null;
+        }
+    }
+
+    private static string BuildFallbackMessage(string baseMessage, System.Net.Http.HttpResponseMessage response) =>
+        $"{baseMessage} (status {(int)response.StatusCode} {response.StatusCode}).";
 }

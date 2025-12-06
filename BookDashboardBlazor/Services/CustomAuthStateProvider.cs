@@ -33,11 +33,7 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
 
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
-        Console.WriteLine("=== [CustomAuthStateProvider] GetAuthenticationStateAsync called ===");
-        
         string? token = await _localStorage.GetItemAsStringAsync("token");
-
-        Console.WriteLine($"[CustomAuthStateProvider] Token from storage: {(string.IsNullOrEmpty(token) ? "NULL/EMPTY" : $"Length={token.Length}, First 50 chars: {token.Substring(0, Math.Min(50, token.Length))}...")}");
 
         var identity = new ClaimsIdentity();
         _http.DefaultRequestHeaders.Authorization = null;
@@ -48,13 +44,8 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
             {
                 // Remove quotes if the token was stored with them
                 var cleanToken = token.Trim('"');
-                Console.WriteLine($"[CustomAuthStateProvider] Clean token length: {cleanToken.Length}");
-                
                 var claims = ParseClaimsFromJwt(cleanToken);
-                Console.WriteLine($"[CustomAuthStateProvider] Parsed {claims.Count()} claims from JWT");
-                
                 identity = new ClaimsIdentity(claims, "jwt");
-                Console.WriteLine($"[CustomAuthStateProvider] Identity created. IsAuthenticated: {identity.IsAuthenticated}");
                 
                 _http.DefaultRequestHeaders.Authorization =
                     new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", cleanToken);
@@ -66,73 +57,27 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
                 identity = new ClaimsIdentity();
             }
         }
-        else
-        {
-            Console.WriteLine("[CustomAuthStateProvider] No token found - user is anonymous");
-        }
 
         var user = new ClaimsPrincipal(identity);
-        
-        // Log all claims
-        Console.WriteLine($"[CustomAuthStateProvider] Final ClaimsPrincipal:");
-        Console.WriteLine($"  - IsAuthenticated: {user.Identity?.IsAuthenticated}");
-        Console.WriteLine($"  - Name: {user.Identity?.Name}");
-        Console.WriteLine($"  - AuthenticationType: {user.Identity?.AuthenticationType}");
-        Console.WriteLine($"  - Total claims: {user.Claims.Count()}");
-        
-        foreach (var claim in user.Claims)
-        {
-            Console.WriteLine($"  - Claim: Type='{claim.Type}', Value='{claim.Value}'");
-        }
-        
-        // Specifically check for role claims
-        var roleClaims = user.Claims.Where(c => 
-            c.Type == ClaimTypes.Role || 
-            c.Type == "role" || 
-            c.Type == "roles" ||
-            c.Type.Contains("role", StringComparison.OrdinalIgnoreCase)).ToList();
-        Console.WriteLine($"[CustomAuthStateProvider] Role-related claims found: {roleClaims.Count}");
-        foreach (var rc in roleClaims)
-        {
-            Console.WriteLine($"  - Role claim: Type='{rc.Type}', Value='{rc.Value}'");
-        }
-        
-        // Test IsInRole
-        Console.WriteLine($"[CustomAuthStateProvider] user.IsInRole('SuperAdmin'): {user.IsInRole("SuperAdmin")}");
-        Console.WriteLine($"[CustomAuthStateProvider] user.IsInRole('Admin'): {user.IsInRole("Admin")}");
-        Console.WriteLine($"[CustomAuthStateProvider] user.IsInRole('User'): {user.IsInRole("User")}");
-        
-        Console.WriteLine("=== [CustomAuthStateProvider] GetAuthenticationStateAsync complete ===");
-
         var state = new AuthenticationState(user);
         return state;
     }
 
     public void NotifyUserAuthentication(string token)
     {
-        Console.WriteLine("=== [CustomAuthStateProvider] NotifyUserAuthentication called ===");
-        Console.WriteLine($"[CustomAuthStateProvider] Token length: {token.Length}");
-        
         var cleanToken = token.Trim('"');
         _http.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", cleanToken);
         
         var claims = ParseClaimsFromJwt(cleanToken);
-        Console.WriteLine($"[CustomAuthStateProvider] Parsed {claims.Count()} claims");
-        
         var authenticatedUser = new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
-        
-        Console.WriteLine($"[CustomAuthStateProvider] After login - IsInRole('SuperAdmin'): {authenticatedUser.IsInRole("SuperAdmin")}");
         
         var authState = Task.FromResult(new AuthenticationState(authenticatedUser));
         NotifyAuthenticationStateChanged(authState);
-        
-        Console.WriteLine("=== [CustomAuthStateProvider] NotifyUserAuthentication complete ===");
     }
 
     public void NotifyUserLogout()
     {
-        Console.WriteLine("=== [CustomAuthStateProvider] NotifyUserLogout called ===");
         _http.DefaultRequestHeaders.Authorization = null;
         var anonymousUser = new ClaimsPrincipal(new ClaimsIdentity());
         var authState = Task.FromResult(new AuthenticationState(anonymousUser));
@@ -141,109 +86,75 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
 
     public static IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
     {
-        Console.WriteLine("=== [ParseClaimsFromJwt] Starting JWT parsing ===");
-        
         var claims = new List<Claim>();
         var parts = jwt.Split('.');
-        
-        Console.WriteLine($"[ParseClaimsFromJwt] JWT has {parts.Length} parts");
-        
+
         if (parts.Length < 2)
         {
-            Console.WriteLine("[ParseClaimsFromJwt] ERROR: JWT has less than 2 parts!");
             return claims;
         }
 
         var payload = parts[1];
-        Console.WriteLine($"[ParseClaimsFromJwt] Payload (base64) length: {payload.Length}");
         
         byte[] jsonBytes;
         try
         {
             jsonBytes = ParseBase64WithoutPadding(payload);
-            Console.WriteLine($"[ParseClaimsFromJwt] Decoded payload length: {jsonBytes.Length} bytes");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"[ParseClaimsFromJwt] ERROR decoding base64: {ex.Message}");
             return claims;
         }
-        
-        // Log raw JSON payload
-        var jsonString = System.Text.Encoding.UTF8.GetString(jsonBytes);
-        Console.WriteLine($"[ParseClaimsFromJwt] RAW JWT PAYLOAD JSON:");
-        Console.WriteLine(jsonString);
         
         Dictionary<string, object>? keyValuePairs;
         try
         {
             keyValuePairs = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonBytes);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"[ParseClaimsFromJwt] ERROR deserializing JSON: {ex.Message}");
             return claims;
         }
 
         if (keyValuePairs != null)
         {
-            Console.WriteLine($"[ParseClaimsFromJwt] Found {keyValuePairs.Count} keys in JWT payload:");
-            
             foreach (var kvp in keyValuePairs)
             {
-                var originalType = kvp.Key;
                 var claimType = MapClaimType(kvp.Key);
-                var wasMapped = originalType != claimType;
-                
-                Console.WriteLine($"  - Key: '{originalType}' -> Mapped to: '{claimType}' (mapped: {wasMapped})");
 
                 if (kvp.Value is JsonElement element)
                 {
-                    Console.WriteLine($"    JsonElement ValueKind: {element.ValueKind}");
-                    
                     if (element.ValueKind == JsonValueKind.Array)
                     {
-                        Console.WriteLine($"    Array with {element.GetArrayLength()} items:");
                         foreach (var item in element.EnumerateArray())
                         {
                             var value = item.ToString();
-                            Console.WriteLine($"      - Array item: '{value}'");
                             if (!string.IsNullOrEmpty(value))
                             {
                                 claims.Add(new Claim(claimType, value));
-                                Console.WriteLine($"      -> Added claim: Type='{claimType}', Value='{value}'");
                             }
                         }
                     }
                     else
                     {
                         var value = element.ToString();
-                        Console.WriteLine($"    Value: '{value}'");
                         if (!string.IsNullOrEmpty(value))
                         {
                             claims.Add(new Claim(claimType, value));
-                            Console.WriteLine($"    -> Added claim: Type='{claimType}', Value='{value}'");
                         }
                     }
                 }
                 else if (kvp.Value != null)
                 {
                     var value = kvp.Value.ToString();
-                    Console.WriteLine($"    Non-JsonElement value: '{value}'");
                     if (!string.IsNullOrEmpty(value))
                     {
                         claims.Add(new Claim(claimType, value));
-                        Console.WriteLine($"    -> Added claim: Type='{claimType}', Value='{value}'");
                     }
                 }
             }
         }
-        else
-        {
-            Console.WriteLine("[ParseClaimsFromJwt] keyValuePairs is null!");
-        }
 
-        Console.WriteLine($"=== [ParseClaimsFromJwt] Complete. Total claims: {claims.Count} ===");
         return claims;
     }
 

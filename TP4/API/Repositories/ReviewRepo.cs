@@ -16,8 +16,6 @@ namespace API.Repositories
         public async Task<IEnumerable<Review>> GetAllAsync()
         {
             return await _context.Reviews
-                .Include(r => r.Comments)
-                .Include(r => r.Book)
                 .ToListAsync();
         }
 
@@ -26,7 +24,7 @@ namespace API.Repositories
             return await _context.Reviews
                 .Include(r => r.Comments)
                 .Include(r => r.Book)
-                .FirstOrDefaultAsync(r => r.ReviewID == id);
+                .FirstOrDefaultAsync(r => r.ReviewId == id);
         }
 
         public async Task AddAsync(Review review)
@@ -49,6 +47,18 @@ namespace API.Repositories
             _context.Reviews.Remove(review);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<Review?> GetByUserAndBookAsync(string userId, int bookId)
+        {
+            return await _context.Reviews
+                .Include(r => r.Book)
+                .FirstOrDefaultAsync(r => r.ApplicationUserId == userId && r.BookId == bookId);
+        }
+
+        public async Task<bool> ExistsForBookAsync(int bookId)
+        {
+            return await _context.Reviews.AnyAsync(r => r.BookId == bookId);
         }
     }
 }

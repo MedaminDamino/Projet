@@ -1,5 +1,8 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace API.Models
 {
+
     public class ReadingGoal
     {
         public int Id { get; set; }
@@ -15,7 +18,10 @@ namespace API.Models
         public Book Book { get; set; } = null!;
 
         public int Year { get; set; }
-        public int Goal { get; set; }
+
+        [Column("Goal")]
+        public int GoalPercentage { get; set; }
+
         public int Progress { get; set; }
         public DateTime CreatedAt { get; set; }
     }

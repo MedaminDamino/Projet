@@ -2,7 +2,7 @@
 @using BookDashboardBlazor.Models
 @using System.Text.Json
 @inject HttpClient Http
-@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@attribute [Authorize]
 
 <h3>Authors</h3>
 
@@ -133,8 +133,9 @@
         ClearModalError();
         try
         {
+            var isCreate = currentAuthor.AuthorId == 0;
             HttpResponseMessage response;
-            if (currentAuthor.AuthorId == 0)
+            if (isCreate)
             {
                 response = await Http.PostAsJsonAsync("api/Author", currentAuthor);
             }
@@ -144,39 +145,24 @@
             }
 
             var raw = await response.Content.ReadAsStringAsync();
-            ApiResponse<Author>? apiResponse = null;
-            if (!string.IsNullOrWhiteSpace(raw))
-            {
-                try
-                {
-                    apiResponse = JsonSerializer.Deserialize<ApiResponse<Author>>(raw, jsonOptions);
-                }
-                catch (JsonException ex)
-                {
-                    Console.WriteLine($"[Authors] JSON parse warning on save: {ex.Message}");
-                }
-            }
+            var serverMessage = DeserializeServerMessage<Author>(raw, "[Authors] SaveAuthor");
 
             if (!response.IsSuccessStatusCode)
             {
-                ShowModalError(apiResponse?.GetUserMessage($"Failed to save author (status {(int)response.StatusCode})."),
-                    apiResponse?.ErrorCode);
-                return;
-            }
-
-            if (apiResponse is not null && !apiResponse.Success &&
-                (!string.IsNullOrWhiteSpace(apiResponse.Message) || !string.IsNullOrWhiteSpace(apiResponse.ErrorCode)))
-            {
-                ShowModalError(apiResponse.GetUserMessage($"Failed to save author (status {(int)response.StatusCode})."),
-                    apiResponse.ErrorCode);
+                var failureMessage = serverMessage?.GetMessageOr(BuildFallbackMessage("Failed to save author", response))
+                                     ?? BuildFallbackMessage("Failed to save author", response);
+                ShowModalError(failureMessage, "HTTP_ERROR");
                 return;
             }
 
             showModal = false;
             await LoadAuthors();
-            ShowSuccessToast(currentAuthor.AuthorId == 0
-                ? "Author created successfully"
-                : "Author updated successfully");
+            var toastMessage = serverMessage?.GetMessageOr(isCreate
+                ? "Author created successfully."
+                : "Author updated successfully.") ?? (isCreate
+                ? "Author created successfully."
+                : "Author updated successfully.");
+            ShowSuccessToast(toastMessage);
         }
         catch (Exception ex)
         {
@@ -202,30 +188,13 @@
         {
             var response = await Http.DeleteAsync($"api/Author/{itemToDelete.AuthorId}");
             var raw = await response.Content.ReadAsStringAsync();
-            ApiResponse<object>? apiResponse = null;
-            if (!string.IsNullOrWhiteSpace(raw))
-            {
-                try
-                {
-                    apiResponse = JsonSerializer.Deserialize<ApiResponse<object>>(raw, jsonOptions);
-                }
-                catch (JsonException ex)
-                {
-                    Console.WriteLine($"[Authors] JSON parse warning on delete: {ex.Message}");
-                }
-            }
+            var serverMessage = DeserializeServerMessage<object>(raw, "[Authors] ConfirmDelete");
 
             if (!response.IsSuccessStatusCode)
             {
-                ShowModalError(apiResponse?.GetUserMessage($"Failed to delete author (status {(int)response.StatusCode})."),
-                    apiResponse?.ErrorCode);
-                return;
-            }
-
-            if (apiResponse is not null && !apiResponse.Success)
-            {
-                ShowModalError(apiResponse.GetUserMessage($"Failed to delete author (status {(int)response.StatusCode})."),
-                    apiResponse.ErrorCode);
+                var failureMessage = serverMessage?.GetMessageOr(BuildFallbackMessage("Failed to delete author", response))
+                                     ?? BuildFallbackMessage("Failed to delete author", response);
+                ShowModalError(failureMessage, "HTTP_ERROR");
                 return;
             }
 
@@ -233,7 +202,8 @@
             showDeleteModal = false;
             StateHasChanged();
             await LoadAuthors();
-            ShowSuccessToast("Author deleted successfully");
+            var toastMessage = serverMessage?.GetMessageOr("Author deleted successfully.") ?? "Author deleted successfully.";
+            ShowSuccessToast(toastMessage);
         }
         catch (Exception ex)
         {
@@ -296,4 +266,25 @@
         successMessage = null;
         StateHasChanged();
     }
+
+    private ServerMessage<T>? DeserializeServerMessage<T>(string json, string context)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<ServerMessage<T>>(json, jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"{context}: JSON parse warning {ex.Message}");
+            return null;
+        }
+    }
+
+    private static string BuildFallbackMessage(string baseMessage, System.Net.Http.HttpResponseMessage response) =>
+        $"{baseMessage} (status {(int)response.StatusCode} {response.StatusCode}).";
 }

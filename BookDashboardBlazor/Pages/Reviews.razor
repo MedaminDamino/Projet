@@ -1,8 +1,9 @@
 @page "/reviews"
 @using BookDashboardBlazor.Models
 @using System.Text.Json
+@using System.ComponentModel.DataAnnotations
 @inject HttpClient Http
-@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@attribute [Authorize]
 
 <h3>Reviews</h3>
 
@@ -79,7 +80,8 @@
 @code {
     private List<Review> reviews = new();
     private List<Book> books = new();
-    private Review currentReview = new();
+    private ReviewFormModel currentReview = new();
+    private int editingReviewId;
     private bool showModal = false;
     private bool showDeleteModal = false;
     private Review? itemToDelete = null;
@@ -111,12 +113,27 @@
 
             if (reviewResponse.IsSuccessStatusCode)
             {
-                reviews = await reviewResponse.Content.ReadFromJsonAsync<List<Review>>() ?? new List<Review>();
+                var jsonContent = await reviewResponse.Content.ReadAsStringAsync();
+                var serverMessage = DeserializeServerMessage<List<Review>>(jsonContent, "[Reviews] LoadData");
+                
+                if (serverMessage?.Data != null)
+                {
+                    reviews = serverMessage.Data;
+                }
+                else
+                {
+                    reviews = new List<Review>();
+                    errorMessage = "Failed to parse reviews response.";
+                    Console.WriteLine("Failed to parse reviews response.");
+                }
             }
             else
             {
                 reviews = new List<Review>();
-                errorMessage = $"Error loading reviews: {reviewResponse.StatusCode}";
+                var jsonContent = await reviewResponse.Content.ReadAsStringAsync();
+                var serverMessage = DeserializeServerMessage<object>(jsonContent, "[Reviews] LoadData");
+                errorMessage = serverMessage?.GetMessageOr($"Error loading reviews: {reviewResponse.StatusCode}") 
+                               ?? $"Error loading reviews: {reviewResponse.StatusCode}";
                 Console.WriteLine($"Error loading reviews: {reviewResponse.StatusCode}");
             }
 
@@ -145,7 +162,8 @@
     private void OpenCreateModal()
     {
         ClearModalError();
-        currentReview = new Review { CreatedAt = DateTime.Now };
+        currentReview = new ReviewFormModel { Rating = 1 };
+        editingReviewId = 0;
         modalTitle = "Add Review";
         showModal = true;
         StateHasChanged();
@@ -154,15 +172,13 @@
     private void OpenEditModal(Review review)
     {
         ClearModalError();
-        currentReview = new Review
+        currentReview = new ReviewFormModel
         {
-            ReviewID = review.ReviewID,
             BookId = review.BookId,
             Rating = review.Rating,
-            ReviewText = review.ReviewText,
-            CreatedAt = review.CreatedAt,
-            AppUserID = review.AppUserID
+            ReviewText = review.ReviewText
         };
+        editingReviewId = review.ReviewID;
         modalTitle = "Edit Review";
         showModal = true;
         StateHasChanged();
@@ -172,61 +188,62 @@
     {
         ClearModalError();
         showModal = false;
+        editingReviewId = 0;
         StateHasChanged();
     }
 
     private async Task SaveReview()
     {
         ClearModalError();
-        var isCreate = currentReview.ReviewID == 0;
+        var isCreate = editingReviewId == 0;
 
         try
         {
             HttpResponseMessage response;
             if (isCreate)
             {
-                response = await Http.PostAsJsonAsync("api/Review", currentReview);
+                var payload = new ReviewCreateDto
+                {
+                    BookId = currentReview.BookId,
+                    Rating = currentReview.Rating,
+                    ReviewText = currentReview.ReviewText
+                };
+                response = await Http.PostAsJsonAsync("api/Review", payload);
             }
             else
             {
-                response = await Http.PutAsJsonAsync($"api/Review/{currentReview.ReviewID}", currentReview);
+                var payload = new ReviewUpdateDto
+                {
+                    BookId = currentReview.BookId,
+                    Rating = currentReview.Rating,
+                    ReviewText = currentReview.ReviewText
+                };
+                response = await Http.PutAsJsonAsync($"api/Review/{editingReviewId}", payload);
             }
 
             var jsonContent = await response.Content.ReadAsStringAsync();
-            ApiResponse<Review>? apiResponse = null;
-            if (!string.IsNullOrWhiteSpace(jsonContent))
-            {
-                try
-                {
-                    apiResponse = JsonSerializer.Deserialize<ApiResponse<Review>>(jsonContent, jsonOptions);
-                }
-                catch (JsonException ex)
-                {
-                    Console.WriteLine($"[Reviews] JSON parse warning on save: {ex.Message}");
-                }
-            }
+            var serverMessage = DeserializeServerMessage<Review>(jsonContent, "[Reviews] SaveReview");
 
             if (!response.IsSuccessStatusCode)
             {
-                ShowModalError(apiResponse?.GetUserMessage($"Failed to save review (status {(int)response.StatusCode})."),
-                    apiResponse?.ErrorCode);
-                Console.WriteLine($"Error saving review: {modalErrorMessage}");
-                return;
-            }
-
-            if (apiResponse is not null && !apiResponse.Success &&
-                (!string.IsNullOrWhiteSpace(apiResponse.Message) || !string.IsNullOrWhiteSpace(apiResponse.ErrorCode)))
-            {
-                ShowModalError(apiResponse.GetUserMessage($"Failed to save review (status {(int)response.StatusCode})."),
-                    apiResponse.ErrorCode);
-                Console.WriteLine($"Error saving review: {modalErrorMessage}");
+                var failureMessage = serverMessage?.GetMessageOr(BuildFallbackMessage("Failed to save review", response))
+                                     ?? BuildFallbackMessage("Failed to save review", response);
+                ShowModalError(failureMessage, "HTTP_ERROR");
+                Console.WriteLine($"Error saving review: {failureMessage}");
                 return;
             }
 
             showModal = false;
+            editingReviewId = 0;
+            currentReview = new ReviewFormModel { Rating = 1 };
             StateHasChanged();
             await LoadData();
-            ShowSuccessToast(isCreate ? "Review created successfully" : "Review updated successfully");
+            var toastMessage = serverMessage?.GetMessageOr(isCreate
+                ? "Review created successfully."
+                : "Review updated successfully.") ?? (isCreate
+                ? "Review created successfully."
+                : "Review updated successfully.");
+            ShowSuccessToast(toastMessage);
         }
         catch (Exception ex)
         {
@@ -252,33 +269,14 @@
         {
             var response = await Http.DeleteAsync($"api/Review/{itemToDelete.ReviewID}");
             var jsonContent = await response.Content.ReadAsStringAsync();
-            ApiResponse<object>? apiResponse = null;
-            if (!string.IsNullOrWhiteSpace(jsonContent))
-            {
-                try
-                {
-                    apiResponse = JsonSerializer.Deserialize<ApiResponse<object>>(jsonContent, jsonOptions);
-                }
-                catch (JsonException ex)
-                {
-                    Console.WriteLine($"[Reviews] JSON parse warning on delete: {ex.Message}");
-                }
-            }
+            var serverMessage = DeserializeServerMessage<object>(jsonContent, "[Reviews] ConfirmDelete");
 
             if (!response.IsSuccessStatusCode)
             {
-                ShowModalError(apiResponse?.GetUserMessage($"Error deleting review: {response.StatusCode}"),
-                    apiResponse?.ErrorCode);
-                Console.WriteLine($"Error deleting review: {modalErrorMessage}");
-                return;
-            }
-
-            if (apiResponse is not null && !apiResponse.Success &&
-                (!string.IsNullOrWhiteSpace(apiResponse.Message) || !string.IsNullOrWhiteSpace(apiResponse.ErrorCode)))
-            {
-                ShowModalError(apiResponse.GetUserMessage($"Error deleting review: {response.StatusCode}"),
-                    apiResponse.ErrorCode);
-                Console.WriteLine($"Error deleting review: {modalErrorMessage}");
+                var failureMessage = serverMessage?.GetMessageOr(BuildFallbackMessage("Error deleting review", response))
+                                     ?? BuildFallbackMessage("Error deleting review", response);
+                ShowModalError(failureMessage, "HTTP_ERROR");
+                Console.WriteLine($"Error deleting review: {failureMessage}");
                 return;
             }
 
@@ -286,7 +284,8 @@
             itemToDelete = null;
             StateHasChanged();
             await LoadData();
-            ShowSuccessToast("Review deleted successfully");
+            var toastMessage = serverMessage?.GetMessageOr("Review deleted successfully.") ?? "Review deleted successfully.";
+            ShowSuccessToast(toastMessage);
         }
         catch (Exception ex)
         {
@@ -347,5 +346,38 @@
         showSuccessToast = false;
         successMessage = null;
         StateHasChanged();
+    }
+
+    private ServerMessage<T>? DeserializeServerMessage<T>(string json, string context)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<ServerMessage<T>>(json, jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"{context}: JSON parse warning {ex.Message}");
+            return null;
+        }
+    }
+
+    private static string BuildFallbackMessage(string baseMessage, System.Net.Http.HttpResponseMessage response) =>
+        $"{baseMessage} (status {(int)response.StatusCode} {response.StatusCode}).";
+
+    private class ReviewFormModel
+    {
+        [Required(ErrorMessage = "Please select a book.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Please select a book.")]
+        public int BookId { get; set; }
+
+        [Range(1, 5, ErrorMessage = "Rating must be between 1 and 5.")]
+        public int Rating { get; set; } = 1;
+
+        public string? ReviewText { get; set; }
     }
 }

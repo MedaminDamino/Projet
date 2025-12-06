@@ -1,8 +1,11 @@
 @page "/admin/user-roles"
 @using System.Text.Json
 @using System.Linq
+@using System.Security.Claims
 @attribute [Authorize(Roles = "SuperAdmin")]
 @inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <style>
     .badge-superadmin { background-color: #D32F2F !important; color: white; }
@@ -164,6 +167,16 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        // Redirect Admin (but not SuperAdmin) to forbidden page
+        if (IsInRoleCaseInsensitive(user, "Admin") && !IsInRoleCaseInsensitive(user, "SuperAdmin"))
+        {
+            NavigationManager.NavigateTo("/forbidden");
+            return;
+        }
+        
         await Task.WhenAll(LoadRolesAsync(), LoadUsersAsync());
     }
 
@@ -238,6 +251,31 @@
         selectedUser = null;
         selectedRole = null;
         ClearModalError();
+    }
+
+    /// <summary>
+    /// Case-insensitive role check helper.
+    /// </summary>
+    private static bool IsInRoleCaseInsensitive(ClaimsPrincipal? user, string roleName)
+    {
+        if (user == null || string.IsNullOrWhiteSpace(roleName))
+        {
+            return false;
+        }
+
+        // Check standard IsInRole first (for exact match)
+        if (user.IsInRole(roleName))
+        {
+            return true;
+        }
+
+        // Check all role claims case-insensitively
+        var roleClaims = user.Claims
+            .Where(c => c.Type == ClaimTypes.Role || c.Type == "role" || c.Type.Contains("role", StringComparison.OrdinalIgnoreCase))
+            .Select(c => c.Value);
+
+        return roleClaims.Any(role => 
+            string.Equals(role, roleName, StringComparison.OrdinalIgnoreCase));
     }
 
     private string GetRoleBadgeClass(string? role) => role?.ToUpperInvariant() switch

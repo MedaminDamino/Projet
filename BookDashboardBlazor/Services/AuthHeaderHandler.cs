@@ -17,7 +17,7 @@ public class AuthHeaderHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        // Only add if missing
+        // Always try to add the token if it's missing
         if (request.Headers.Authorization == null)
         {
             var token = await _localStorage.GetItemAsStringAsync("token");
@@ -29,34 +29,47 @@ public class AuthHeaderHandler : DelegatingHandler
                 {
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", cleanToken);
                     
-                    // Debug logging for Review endpoints
-                    if (request.RequestUri?.ToString().Contains("/api/Review/") == true)
+                    // Debug logging for all requests (especially Review endpoints)
+                    var uri = request.RequestUri?.ToString() ?? request.RequestUri?.OriginalString ?? "unknown";
+                    var isReviewEndpoint = uri.Contains("/api/Review/", StringComparison.OrdinalIgnoreCase) || 
+                                          uri.Contains("Review/", StringComparison.OrdinalIgnoreCase);
+                    
+                    if (isReviewEndpoint)
                     {
-                        Console.WriteLine($"[AuthHeaderHandler] Added Bearer token to {request.Method} {request.RequestUri}");
+                        Console.WriteLine($"[AuthHeaderHandler] Added Bearer token to {request.Method} {uri}");
                         Console.WriteLine($"[AuthHeaderHandler] Token length: {cleanToken.Length}, First 20 chars: {cleanToken.Substring(0, Math.Min(20, cleanToken.Length))}...");
                     }
                 }
                 else
                 {
-                    if (request.RequestUri?.ToString().Contains("/api/Review/") == true)
+                    var uri = request.RequestUri?.ToString() ?? request.RequestUri?.OriginalString ?? "unknown";
+                    var isReviewEndpoint = uri.Contains("/api/Review/", StringComparison.OrdinalIgnoreCase) || 
+                                          uri.Contains("Review/", StringComparison.OrdinalIgnoreCase);
+                    if (isReviewEndpoint)
                     {
-                        Console.WriteLine($"[AuthHeaderHandler] Token was empty after cleaning for {request.Method} {request.RequestUri}");
+                        Console.WriteLine($"[AuthHeaderHandler] Token was empty after cleaning for {request.Method} {uri}");
                     }
                 }
             }
             else
             {
-                if (request.RequestUri?.ToString().Contains("/api/Review/") == true)
+                var uri = request.RequestUri?.ToString() ?? request.RequestUri?.OriginalString ?? "unknown";
+                var isReviewEndpoint = uri.Contains("/api/Review/", StringComparison.OrdinalIgnoreCase) || 
+                                      uri.Contains("Review/", StringComparison.OrdinalIgnoreCase);
+                if (isReviewEndpoint)
                 {
-                    Console.WriteLine($"[AuthHeaderHandler] No token found in localStorage for {request.Method} {request.RequestUri}");
+                    Console.WriteLine($"[AuthHeaderHandler] No token found in localStorage for {request.Method} {uri}");
                 }
             }
         }
         else
         {
-            if (request.RequestUri?.ToString().Contains("/api/Review/") == true)
+            var uri = request.RequestUri?.ToString() ?? request.RequestUri?.OriginalString ?? "unknown";
+            var isReviewEndpoint = uri.Contains("/api/Review/", StringComparison.OrdinalIgnoreCase) || 
+                                  uri.Contains("Review/", StringComparison.OrdinalIgnoreCase);
+            if (isReviewEndpoint)
             {
-                Console.WriteLine($"[AuthHeaderHandler] Authorization header already present for {request.Method} {request.RequestUri}");
+                Console.WriteLine($"[AuthHeaderHandler] Authorization header already present for {request.Method} {uri}");
             }
         }
 

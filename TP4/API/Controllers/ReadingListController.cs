@@ -1,6 +1,8 @@
 using API.DTO;
+using API.Helpers;
 using API.Interfaces;
 using API.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
@@ -104,6 +106,7 @@ namespace API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "SuperAdmin,Admin,User")]
         public async Task<IActionResult> Create(ReadingListCreateDto createDto)
         {
             if (!IsValidStatus(createDto.Status))
@@ -141,6 +144,7 @@ namespace API.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "SuperAdmin,Admin,User")]
         public async Task<IActionResult> Update(int id, ReadingListUpdateDto updateDto)
         {
             var existing = await _repo.GetByIdAsync(id);
@@ -184,8 +188,11 @@ namespace API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "SuperAdmin,User")]
         public async Task<IActionResult> Delete(int id)
         {
+            // Note: Admin role is excluded - only SuperAdmin and User (for their own items) can delete
+
             var deleted = await _repo.DeleteAsync(id);
             if (!deleted)
                 return NotFound(new ApiResponse

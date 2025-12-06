@@ -9,5 +9,6 @@ namespace API.Interfaces
         Task<Author> AddAsync(Author author);
         Task<bool> UpdateAsync(Author author);
         Task<bool> DeleteAsync(int id);
+        Task<bool> HasBooksAsync(int authorId);
     }
 }

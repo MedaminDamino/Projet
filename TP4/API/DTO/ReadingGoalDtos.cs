@@ -4,7 +4,7 @@ namespace API.DTO
     {
         public int Year { get; set; }
 
-        public int Goal { get; set; }
+        public int GoalPercentage { get; set; }
 
         public int Progress { get; set; }
 

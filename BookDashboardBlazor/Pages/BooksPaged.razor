@@ -90,9 +90,13 @@ else
                                 <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => OpenEditModal(book)">
                                     Edit
                                 </button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBook(book)">
-                                    Delete
-                                </button>
+                                <AuthorizeView Roles="SuperAdmin">
+                                    <Authorized>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBook(book)">
+                                            Delete
+                                        </button>
+                                    </Authorized>
+                                </AuthorizeView>
                             </td>
                         </tr>
                     }
@@ -177,6 +181,7 @@ else
 
     private PaginationModel pagination = new() { Page = 1, PageSize = 10 };
     private SortModel currentSort = new();
+    
 
     protected override async Task OnInitializedAsync()
     {
@@ -192,6 +197,7 @@ else
             isLoading = false;
         }
     }
+
 
     private async Task LoadAuthorsAndGenres()
     {

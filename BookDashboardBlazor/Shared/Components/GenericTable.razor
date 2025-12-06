@@ -1,4 +1,6 @@
 @typeparam TItem
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 @* <input type="text" class="form-control mb-3"
        placeholder="Search..."
@@ -25,7 +27,11 @@
                         @RowTemplate(item)
                         <td>
                             <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => OnEdit.InvokeAsync(item)">Edit</button>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="async () => { if (OnDelete.HasDelegate) await OnDelete.InvokeAsync(item); }">Delete</button>
+                            <AuthorizeView Roles="SuperAdmin">
+                                <Authorized>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="async () => { if (OnDelete.HasDelegate) await OnDelete.InvokeAsync(item); }">Delete</button>
+                                </Authorized>
+                            </AuthorizeView>
                         </td>
                     </tr>
                 }

@@ -1,7 +1,7 @@
 @page "/goals"
 @using BookDashboardBlazor.Models
 @inject HttpClient Http
-@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@attribute [Authorize]
 
 <h3>Reading Goals</h3>
 
@@ -33,15 +33,15 @@
     <TableHeader>
         <th>ID</th>
         <th>Year</th>
-        <th>Goal</th>
+        <th>Goal %</th>
         <th>Progress</th>
         <th>Book</th>
     </TableHeader>
     <RowTemplate Context="goal">
         <td>@goal.Id</td>
         <td>@goal.Year</td>
-        <td>@goal.Goal</td>
-        <td>@goal.Progress</td>
+        <td>@($"{goal.GoalPercentage}%")</td>
+        <td>@($"{goal.Progress}%")</td>
         <td>@(goal.Book?.Title ?? "Unknown")</td>
     </RowTemplate>
 </GenericTable>
@@ -58,12 +58,12 @@
         </div>
 
         <div class="mb-3">
-            <label>Goal (books per year)</label>
-            <InputNumber @bind-Value="currentGoal.Goal" class="form-control" />
+            <label>Goal Percentage (1-100%)</label>
+            <InputNumber @bind-Value="currentGoal.GoalPercentage" class="form-control" />
         </div>
 
         <div class="mb-3">
-            <label>Progress</label>
+            <label>Progress (1-100%)</label>
             <InputNumber @bind-Value="currentGoal.Progress" class="form-control" />
         </div>
 
@@ -84,7 +84,7 @@
 
 @* Delete confirmation modal *@
 <Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal" ToastContent="ModalToast">
-    <p>Are you sure you want to delete goal <strong>@itemToDelete?.Goal</strong> for year <strong>@itemToDelete?.Year</strong>?</p>
+    <p>Are you sure you want to delete goal <strong>@itemToDelete?.GoalPercentage</strong>% for year <strong>@itemToDelete?.Year</strong>?</p>
     <div class="mt-3">
         <button class="btn btn-danger me-2" @onclick="ConfirmDelete">Delete</button>
         <button class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
@@ -148,64 +148,45 @@
         try
         {
             ClearError();
-            Console.WriteLine("[Goals] Loading books and goals");
+            Console.WriteLine("[Goals] Loading goals");
 
             var response = await Http.GetAsync("api/ReadingGoal");
             var jsonContent = await response.Content.ReadAsStringAsync();
-
-            Console.WriteLine($"[Goals] Goals status {((int)response.StatusCode)}, raw response: {jsonContent}");
-
-            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                // API is telling us user not authenticated
-                try
-                {
-                    var apiError = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<object>>(jsonContent, jsonOptions);
-                    errorMessage = apiError?.Message ?? "User not authenticated";
-                    errorCode = apiError?.ErrorCode ?? "UNAUTHORIZED";
-                }
-                catch
-                {
-                    errorMessage = "User not authenticated";
-                    errorCode = "UNAUTHORIZED";
-                }
-
-                goals = new List<ReadingGoal>();
-                Console.WriteLine("[Goals] Unauthorized when loading goals");
-                return;
-            }
+            var serverMessage = DeserializeServerMessage<List<ReadingGoal>>(jsonContent, "[Goals] LoadGoals");
 
             if (!response.IsSuccessStatusCode)
             {
-                errorMessage = $"API Error: {response.StatusCode}";
-                Console.WriteLine($"[Goals] API error when loading goals: {response.StatusCode}");
+                errorMessage = serverMessage?.GetMessageOr(BuildFallbackMessage("Unable to load goals", response))
+                               ?? BuildFallbackMessage("Unable to load goals", response);
+                errorCode = response.StatusCode.ToString();
+                Console.WriteLine($"[Goals] API error when loading goals: {errorMessage}");
                 goals = new List<ReadingGoal>();
                 return;
             }
 
-            try
+            if (serverMessage?.Data != null)
             {
-                var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<List<ReadingGoal>>>(jsonContent, jsonOptions);
-
-                if (apiResponse == null || !apiResponse.Success || apiResponse.Data == null)
+                goals = serverMessage.Data;
+            }
+            else
+            {
+                try
                 {
-                    errorMessage = apiResponse?.Message ?? "Failed to load goals";
-                    errorCode = apiResponse?.ErrorCode;
-                    Console.WriteLine($"[Goals] API unsuccessful: {apiResponse?.Message}");
+                    goals = System.Text.Json.JsonSerializer.Deserialize<List<ReadingGoal>>(jsonContent, jsonOptions)
+                        ?? new List<ReadingGoal>();
+                }
+                catch (System.Text.Json.JsonException jsonEx)
+                {
+                    errorMessage = $"Error parsing goals data: {jsonEx.Message}";
+                    errorCode = "PARSE_ERROR";
                     goals = new List<ReadingGoal>();
+                    Console.WriteLine($"[Goals] JSON error: {jsonEx.Message}");
                     return;
                 }
+            }
 
-                goals = apiResponse.Data;
-                Console.WriteLine($"[Goals] Loaded {goals.Count} goals");
-                StateHasChanged();
-            }
-            catch (System.Text.Json.JsonException jsonEx)
-            {
-                Console.WriteLine($"[Goals] JSON error: {jsonEx.Message}");
-                errorMessage = $"Error parsing goals data: {jsonEx.Message}";
-                goals = new List<ReadingGoal>();
-            }
+            Console.WriteLine($"[Goals] Loaded {goals.Count} goals");
+            StateHasChanged();
         }
         catch (HttpRequestException ex)
         {
@@ -229,8 +210,8 @@
         currentGoal = new ReadingGoal
         {
             Year = DateTime.Now.Year,
-            Goal = 0,
-            Progress = 0,
+            GoalPercentage = 50,
+            Progress = 1,
             BookId = 0
         };
 
@@ -251,7 +232,7 @@
             ApplicationUserId = goal.ApplicationUserId,
             BookId = goal.BookId,
             Year = goal.Year,
-            Goal = goal.Goal,
+            GoalPercentage = goal.GoalPercentage,
             Progress = goal.Progress,
             CreatedAt = goal.CreatedAt,
             Book = goal.Book
@@ -300,19 +281,25 @@
             var jsonContent = await response.Content.ReadAsStringAsync();
             Console.WriteLine($"[Goals] Save response: {jsonContent}");
 
-            var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<ReadingGoal>>(jsonContent, jsonOptions);
+            var serverMessage = DeserializeServerMessage<ReadingGoal>(jsonContent, "[Goals] SaveGoal");
 
-            if (apiResponse == null || !apiResponse.Success)
+            if (!response.IsSuccessStatusCode)
             {
-                ShowModalError(apiResponse?.GetUserMessage($"Failed to {(isCreate ? "create" : "update")} goal: {response.StatusCode}"),
-                               apiResponse?.ErrorCode);
-                Console.WriteLine($"[Goals] Error saving goal: {modalErrorMessage} (Code: {modalErrorCode})");
+                var failureMessage = serverMessage?.GetMessageOr(BuildFallbackMessage($"Failed to {(isCreate ? "create" : "update")} goal", response))
+                                     ?? BuildFallbackMessage($"Failed to {(isCreate ? "create" : "update")} goal", response);
+                ShowModalError(failureMessage, "HTTP_ERROR");
+                Console.WriteLine($"[Goals] Error saving goal: {failureMessage}");
                 return;
             }
 
             showModal = false;
             await LoadGoals();
-            ShowSuccessToast(isCreate ? "Goal created successfully" : "Goal updated successfully");
+            var toastMessage = serverMessage?.GetMessageOr(isCreate
+                ? "Goal created successfully."
+                : "Goal updated successfully.") ?? (isCreate
+                ? "Goal created successfully."
+                : "Goal updated successfully.");
+            ShowSuccessToast(toastMessage);
             StateHasChanged();
         }
         catch (Exception ex)
@@ -361,28 +348,29 @@
 
             Console.WriteLine($"[Goals] Delete response: {jsonContent}");
 
-            var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<object>>(jsonContent, jsonOptions);
+            var serverMessage = DeserializeServerMessage<object>(jsonContent, "[Goals] ConfirmDelete");
 
-            if (apiResponse != null && apiResponse.Success)
+            if (!response.IsSuccessStatusCode)
             {
-                Console.WriteLine($"[Goals] Successfully deleted Id={itemToDelete.Id}");
-
-                goals.RemoveAll(g => g.Id == itemToDelete.Id);
-
-                showDeleteModal = false;
-                itemToDelete = null;
-
-                StateHasChanged();
-
-                await LoadGoals();
-                ShowSuccessToast("Goal deleted successfully");
+                var failureMessage = serverMessage?.GetMessageOr(BuildFallbackMessage("Failed to delete goal", response))
+                                     ?? BuildFallbackMessage("Failed to delete goal", response);
+                ShowModalError(failureMessage, "HTTP_ERROR");
+                Console.WriteLine($"[Goals] Error deleting goal: {failureMessage}");
+                return;
             }
-            else
-            {
-                ShowModalError(apiResponse?.GetUserMessage($"Failed to delete goal: {response.StatusCode}"),
-                               apiResponse?.ErrorCode);
-                Console.WriteLine($"[Goals] Error deleting goal: {modalErrorMessage} (Code: {modalErrorCode})");
-            }
+
+            Console.WriteLine($"[Goals] Successfully deleted Id={itemToDelete.Id}");
+
+            goals.RemoveAll(g => g.Id == itemToDelete.Id);
+
+            showDeleteModal = false;
+            itemToDelete = null;
+
+            StateHasChanged();
+
+            await LoadGoals();
+            var toastMessage = serverMessage?.GetMessageOr("Goal deleted successfully.") ?? "Goal deleted successfully.";
+            ShowSuccessToast(toastMessage);
         }
         catch (Exception ex)
         {
@@ -390,6 +378,27 @@
             ShowModalError($"Error deleting goal: {ex.Message}", "EXCEPTION");
         }
     }
+
+    private ServerMessage<T>? DeserializeServerMessage<T>(string json, string context)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<ServerMessage<T>>(json, jsonOptions);
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            Console.WriteLine($"{context}: JSON parse warning {ex.Message}");
+            return null;
+        }
+    }
+
+    private static string BuildFallbackMessage(string baseMessage, System.Net.Http.HttpResponseMessage response) =>
+        $"{baseMessage} (status {(int)response.StatusCode} {response.StatusCode}).";
 
     private RenderFragment ModalToast => builder =>
     {

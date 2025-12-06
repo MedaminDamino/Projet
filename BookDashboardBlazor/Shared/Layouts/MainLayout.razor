@@ -25,7 +25,6 @@
     <div class="app-main">
         <div class="app-topbar">
             <div class="topbar-content">
-                <h1 class="topbar-title">Book Dashboard</h1>
                 
                 @* ═══════════════════════════════════════════════════════════════════ *@
                 @* HEADER NAVIGATION: Always visible for authenticated users           *@
@@ -34,7 +33,7 @@
                 <div class="topbar-nav">
                     <AuthorizeView>
                         <Authorized>
-                            <a href="" class="nav-link">Home</a>
+                            <a href="" class="nav-link">📚 Book Dashboard</a>
                             <a href="discover" class="nav-link">Discover Books</a>
                         </Authorized>
                     </AuthorizeView>
@@ -73,14 +72,39 @@
     private ClaimsPrincipal? user;
 
     /// <summary>
-    /// Returns true if the user has SuperAdmin role.
+    /// Returns true if the user has SuperAdmin role (case-insensitive).
     /// </summary>
-    private bool IsSuperAdmin => user?.IsInRole("SuperAdmin") == true;
+    private bool IsSuperAdmin => IsInRoleCaseInsensitive(user, "SuperAdmin");
 
     /// <summary>
-    /// Returns true if the user has Admin role.
+    /// Returns true if the user has Admin role (case-insensitive).
     /// </summary>
-    private bool IsAdmin => user?.IsInRole("Admin") == true;
+    private bool IsAdmin => IsInRoleCaseInsensitive(user, "Admin");
+
+    /// <summary>
+    /// Case-insensitive role check helper.
+    /// </summary>
+    private static bool IsInRoleCaseInsensitive(ClaimsPrincipal? user, string roleName)
+    {
+        if (user == null || string.IsNullOrWhiteSpace(roleName))
+        {
+            return false;
+        }
+
+        // Check standard IsInRole first (for exact match)
+        if (user.IsInRole(roleName))
+        {
+            return true;
+        }
+
+        // Check all role claims case-insensitively
+        var roleClaims = user.Claims
+            .Where(c => c.Type == ClaimTypes.Role || c.Type == "role" || c.Type.Contains("role", StringComparison.OrdinalIgnoreCase))
+            .Select(c => c.Value);
+
+        return roleClaims.Any(role => 
+            string.Equals(role, roleName, StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>
     /// Returns true if the user is SuperAdmin OR Admin.

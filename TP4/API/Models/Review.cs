@@ -1,19 +1,20 @@
-﻿using API.Models;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
-public class Review
+namespace API.Models
 {
-    public int ReviewID { get; set; }
-    public int AppUserID { get; set; }
-    public int BookId { get; set; }
-    public int Rating { get; set; }
-    public string? ReviewText { get; set; }
-    public DateTime CreatedAt { get; set; }
-    [JsonIgnore]
+    public class Review
+    {
+        public int ReviewId { get; set; }
+        public string ApplicationUserId { get; set; } = string.Empty;
 
-    public Book? Book { get; set; } = null!;
-    [JsonIgnore]
+        public int BookId { get; set; }
+        public Book Book { get; set; } = null!;
 
-    public ICollection<Comment> Comments { get; set; } = new List<Comment>();
+        public int Rating { get; set; }
+        public string? ReviewText { get; set; }
+        public DateTime CreatedAt { get; set; }
 
+        [JsonIgnore]
+        public ICollection<Comment> Comments { get; set; } = new List<Comment>();
+    }
 }

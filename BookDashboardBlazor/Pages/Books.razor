@@ -2,7 +2,7 @@
 @using BookDashboardBlazor.Models
 @using Microsoft.AspNetCore.Components.Forms
 @inject HttpClient Http
-@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@attribute [Authorize]
 
 <h3>Books</h3>
 
@@ -173,6 +173,10 @@
     private bool showSuccessToast;
 
     private string? errorMessage;
+    private readonly System.Text.Json.JsonSerializerOptions jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -304,54 +308,23 @@
         Console.WriteLine($"[Books] SaveBook HTTP status: {(int)response.StatusCode} {response.StatusCode}");
         Console.WriteLine($"[Books] SaveBook response body (first 300 chars): {jsonContent.Substring(0, Math.Min(300, jsonContent.Length))}");
 
-        var options = new System.Text.Json.JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
+        var serverMessage = DeserializeServerMessage<Book>(jsonContent);
 
-        try
+        if (!response.IsSuccessStatusCode)
         {
-            // Try to parse as ApiResponse<Book> (like ReadingList)
-            var apiResponse =
-                System.Text.Json.JsonSerializer.Deserialize<ApiResponse<Book>>(jsonContent, options);
-
-            if (apiResponse != null && apiResponse.Success)
-            {
-                Console.WriteLine($"[Books] SaveBook ApiResponse.Success = true. BookId={apiResponse.Data?.BookId}");
-            }
-            else if (!response.IsSuccessStatusCode)
-            {
-                ShowModalError(apiResponse?.GetUserMessage($"Failed to save book (status {(int)response.StatusCode})."),
-                    apiResponse?.ErrorCode);
-                Console.WriteLine($"[Books] Error saving book: {modalErrorMessage} (Code: {apiResponse?.ErrorCode})");
-                return;
-            }
-            else
-            {
-                // No wrapper but HTTP OK -> treat as success
-                Console.WriteLine("[Books] SaveBook succeeded with non-wrapped response.");
-            }
-        }
-        catch (System.Text.Json.JsonException jsonEx)
-        {
-            Console.WriteLine($"[Books] JSON parse error in SaveBook: {jsonEx.Message}");
-            // Fallback: if Books endpoint returns plain Book or simple message
-            if (!response.IsSuccessStatusCode)
-            {
-                ShowModalError($"Failed to save book (status {(int)response.StatusCode}). Server says: {jsonContent}",
-                    "HTTP_ERROR");
-                Console.WriteLine($"[Books] Fallback SaveBook error: {modalErrorMessage}");
-                return;
-            }
-
-            Console.WriteLine("[Books] SaveBook fallback: treating response as success without ApiResponse wrapper.");
+            var failureMessage = serverMessage?.GetMessageOr(BuildFallbackMessage("Failed to save book", response))
+                                 ?? BuildFallbackMessage("Failed to save book", response);
+            ShowModalError(failureMessage, "HTTP_ERROR");
+            Console.WriteLine($"[Books] Error saving book: {failureMessage}");
+            return;
         }
 
-        // Success
         Console.WriteLine("[Books] SaveBook succeeded, closing modal and reloading data.");
         showModal = false;
         await LoadData();
-        ShowSuccessToast(isCreate ? "Book created successfully" : "Book updated successfully");
+        var toastMessage = serverMessage?.GetMessageOr(isCreate ? "Book created successfully." : "Book updated successfully.")
+                           ?? (isCreate ? "Book created successfully." : "Book updated successfully.");
+        ShowSuccessToast(toastMessage);
     }
 
     private async Task DeleteBook(Book book)
@@ -397,59 +370,27 @@
             Console.WriteLine($"[Books] ConfirmDelete HTTP status: {(int)response.StatusCode} {response.StatusCode}");
             Console.WriteLine($"[Books] ConfirmDelete response body (first 300 chars): {jsonContent.Substring(0, Math.Min(300, jsonContent.Length))}");
 
-            var options = new System.Text.Json.JsonSerializerOptions
+            var serverMessage = DeserializeServerMessage<object>(jsonContent);
+
+            if (!response.IsSuccessStatusCode)
             {
-                PropertyNameCaseInsensitive = true
-            };
-
-            try
-            {
-                // Try ApiResponse<object> like ReadingList
-                var apiResponse =
-                    System.Text.Json.JsonSerializer.Deserialize<ApiResponse<object>>(jsonContent, options);
-
-                if (apiResponse != null && apiResponse.Success)
-                {
-                    Console.WriteLine($"[Books] ConfirmDelete ApiResponse.Success = true. Removing from local list BookId={deletingId}");
-
-                    books.RemoveAll(b => b.BookId == deletingId);
-
-                    showDeleteModal = false;
-                    itemToDelete = null;
-                    StateHasChanged();
-
-                    Console.WriteLine("[Books] ConfirmDelete reloading data from server...");
-                    await LoadData();
-                    ShowSuccessToast("Book deleted successfully");
-                    return;
-                }
-
-                ShowModalError(apiResponse?.GetUserMessage($"Failed to delete book: {response.StatusCode}"),
-                    apiResponse?.ErrorCode);
-                Console.WriteLine($"[Books] Error deleting book: {modalErrorMessage} (Code: {apiResponse?.ErrorCode})");
+                var failureMessage = serverMessage?.GetMessageOr(BuildFallbackMessage("Failed to delete book", response))
+                                     ?? BuildFallbackMessage("Failed to delete book", response);
+                ShowModalError(failureMessage, "HTTP_ERROR");
+                Console.WriteLine($"[Books] Error deleting book: {failureMessage}");
+                return;
             }
-            catch (System.Text.Json.JsonException jsonEx)
-            {
-                Console.WriteLine($"[Books] JSON parse error in ConfirmDelete: {jsonEx.Message}");
 
-                // Fallback: endpoint returns no wrapper
-                if (!response.IsSuccessStatusCode)
-                {
-                    ShowModalError($"Failed to delete book (status {(int)response.StatusCode}). Server says: {jsonContent}",
-                        "HTTP_ERROR");
-                    Console.WriteLine($"[Books] Fallback delete error: {modalErrorMessage}");
-                }
-                else
-                {
-                    Console.WriteLine($"[Books] ConfirmDelete fallback: treating delete as success. Removing BookId={deletingId} locally.");
-                    books.RemoveAll(b => b.BookId == deletingId);
-                    StateHasChanged();
-                    showDeleteModal = false;
-                    itemToDelete = null;
-                    await LoadData();
-                    ShowSuccessToast("Book deleted successfully");
-                }
-            }
+            books.RemoveAll(b => b.BookId == deletingId);
+
+            showDeleteModal = false;
+            itemToDelete = null;
+            StateHasChanged();
+
+            Console.WriteLine("[Books] ConfirmDelete reloading data from server...");
+            await LoadData();
+            var toastMessage = serverMessage?.GetMessageOr("Book deleted successfully.") ?? "Book deleted successfully.";
+            ShowSuccessToast(toastMessage);
         }
         catch (Exception ex)
         {
@@ -546,6 +487,27 @@
 
         return content;
     }
+
+    private ServerMessage<T>? DeserializeServerMessage<T>(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<ServerMessage<T>>(json, jsonOptions);
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            Console.WriteLine($"[Books] JSON parse warning: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static string BuildFallbackMessage(string baseMessage, System.Net.Http.HttpResponseMessage response) =>
+        $"{baseMessage} (status {(int)response.StatusCode} {response.StatusCode}).";
 
     private RenderFragment ModalToast => builder =>
     {

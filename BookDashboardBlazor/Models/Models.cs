@@ -73,7 +73,7 @@ public class Review
     [JsonPropertyName("reviewID")]
     public int ReviewID { get; set; }
     [JsonPropertyName("appUserID")]
-    public int AppUserID { get; set; }
+    public string AppUserID { get; set; } = string.Empty;
     [JsonPropertyName("bookId")]
     public int BookId { get; set; }
     [JsonPropertyName("rating")]
@@ -108,8 +108,8 @@ public class ReadingGoal
     public string? ApplicationUserId { get; set; }
     [JsonPropertyName("year")]
     public int Year { get; set; }
-    [JsonPropertyName("goal")]
-    public int Goal { get; set; }
+    [JsonPropertyName("goalPercentage")]
+    public int GoalPercentage { get; set; }
     [JsonPropertyName("progress")]
     public int Progress { get; set; }
     [JsonPropertyName("bookId")]
@@ -219,6 +219,18 @@ public class ApiResponse<T>
     }
 }
 
+public class ServerMessage<T>
+{
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+
+    [JsonPropertyName("data")]
+    public T? Data { get; set; }
+
+    public string GetMessageOr(string fallback) =>
+        string.IsNullOrWhiteSpace(Message) ? fallback : Message;
+}
+
 public class RegistrationResult
 {
     public bool Success { get; set; }
@@ -300,4 +312,38 @@ public class RemoveRoleDto
     [Required]
     [JsonPropertyName("roleIdOrName")]
     public string RoleIdOrName { get; set; } = string.Empty;
+}
+
+public class UserRatingDto
+{
+    [JsonPropertyName("bookId")]
+    public int BookId { get; set; }
+
+    [JsonPropertyName("rating")]
+    public int Rating { get; set; }
+}
+
+public class RateBookDto
+{
+    [JsonPropertyName("bookId")]
+    public int BookId { get; set; }
+
+    [JsonPropertyName("rating")]
+    public int Rating { get; set; }
+}
+
+public class ReviewCreateDto
+{
+    [JsonPropertyName("bookId")]
+    public int BookId { get; set; }
+
+    [JsonPropertyName("rating")]
+    public int Rating { get; set; }
+
+    [JsonPropertyName("reviewText")]
+    public string? ReviewText { get; set; }
+}
+
+public class ReviewUpdateDto : ReviewCreateDto
+{
 }

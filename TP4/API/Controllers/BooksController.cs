@@ -1,8 +1,11 @@
 using API.DTO;
+using API.Helpers;
 using API.Interfaces;
 using API.Models;
 using API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Controllers
 {
@@ -12,11 +15,13 @@ namespace API.Controllers
     {
         private readonly IBookRepo bookRepo;
         private readonly IImageService imageService;
+        private readonly IReviewRepo reviewRepo;
 
-        public BooksController(IBookRepo bookRepo, IImageService imageService)
+        public BooksController(IBookRepo bookRepo, IImageService imageService, IReviewRepo reviewRepo)
         {
             this.bookRepo = bookRepo;
             this.imageService = imageService;
+            this.reviewRepo = reviewRepo;
         }
 
         // GET ALL BOOKS
@@ -44,7 +49,7 @@ namespace API.Controllers
             var book = await bookRepo.GetByIdAsync(id);
             if (book == null)
             {
-                return NotFound(new { message = "Livre introuvable !" });
+                return NotFound(new { message = "Book not found." });
             }
 
             var result = new BookReadDto
@@ -62,8 +67,14 @@ namespace API.Controllers
 
         // CREATE BOOK
         [HttpPost]
+        [Authorize(Roles = "SuperAdmin,Admin")]
         public async Task<IActionResult> Create([FromForm] BookCreateDto dto)
         {
+            if (IsPublishYearInFuture(dto.PublishYear))
+            {
+                return BadRequest(new { message = "Publish year must be in the past." });
+            }
+
             string? imageUrl = null;
 
             // Upload image if provided
@@ -106,17 +117,27 @@ namespace API.Controllers
                 ImageUrl = BuildPublicImageUrl(newBook.ImageUrl)
             };
 
-            return CreatedAtAction(nameof(GetById), new { id = newBook.BookId }, responseDto);
+            return CreatedAtAction(nameof(GetById), new { id = newBook.BookId }, new
+            {
+                message = "Book created successfully.",
+                data = responseDto
+            });
         }
 
         // UPDATE BOOK
         [HttpPut("{id}")]
+        [Authorize(Roles = "SuperAdmin,Admin")]
         public async Task<IActionResult> Update(int id, [FromForm] BookCreateDto dto)
         {
             var book = await bookRepo.GetByIdAsync(id);
             if (book == null)
             {
-                return NotFound(new { message = "Livre introuvable !" });
+                return NotFound(new { message = "Book not found." });
+            }
+
+            if (IsPublishYearInFuture(dto.PublishYear))
+            {
+                return BadRequest(new { message = "Publish year must be in the past." });
             }
 
             // Handle image upload/replacement
@@ -160,17 +181,28 @@ namespace API.Controllers
                 ImageUrl = BuildPublicImageUrl(book.ImageUrl)
             };
 
-            return Ok(updatedDto);
+            return Ok(new
+            {
+                message = "Book updated successfully.",
+                data = updatedDto
+            });
         }
 
         // DELETE BOOK
         [HttpDelete("{id}")]
+        [Authorize(Roles = "SuperAdmin")]
         public async Task<IActionResult> Delete(int id)
         {
+
             var book = await bookRepo.GetByIdAsync(id);
             if (book == null)
             {
-                return NotFound(new { message = "Livre introuvable !" });
+                return NotFound(new { message = "Book not found." });
+            }
+
+            if (await reviewRepo.ExistsForBookAsync(id))
+            {
+                return BadRequest(new { message = "You cannot delete this book because it already has reviews." });
             }
 
             if (!string.IsNullOrEmpty(book.ImageUrl))
@@ -178,8 +210,34 @@ namespace API.Controllers
                 imageService.DeleteImage(book.ImageUrl);
             }
 
-            await bookRepo.DeleteAsync(id);
-            return Ok(new { message = "Book deleted." });
+            try
+            {
+                await bookRepo.DeleteAsync(id);
+                return Ok(new
+                {
+                    message = "Book deleted successfully.",
+                    data = new { id = book.BookId }
+                });
+            }
+            catch (InvalidOperationException)
+            {
+                return BadRequest(new { message = "You cannot delete this book because it already has reviews." });
+            }
+            catch (DbUpdateException)
+            {
+                return BadRequest(new { message = "Unable to delete this book because it is referenced by other records." });
+            }
+        }
+
+        private static bool IsPublishYearInFuture(int? publishYear)
+        {
+            if (!publishYear.HasValue)
+            {
+                return false;
+            }
+
+            var currentYear = DateTime.UtcNow.Year;
+            return publishYear.Value > currentYear;
         }
 
         private string? BuildPublicImageUrl(string? imagePath)

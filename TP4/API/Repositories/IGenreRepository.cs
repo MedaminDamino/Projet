@@ -9,5 +9,6 @@ namespace API.Interfaces
         Task<Genre> AddAsync(Genre genre);
         Task<bool> UpdateAsync(Genre genre);
         Task<bool> DeleteAsync(int id);
+        Task<bool> HasBooksAsync(int genreId);
     }
 }

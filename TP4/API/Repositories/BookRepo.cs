@@ -1,4 +1,5 @@
-﻿using API.Interfaces;
+using System;
+using API.Interfaces;
 using API.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,12 +31,21 @@ namespace API.Repositories
         }
 
         public async Task DeleteAsync(int id)
-        {
-            var b = await _context.Books.FindAsync(id);
-            if (b == null) return;
-            _context.Books.Remove(b);
-            await _context.SaveChangesAsync();
-        }
+{
+    var book = await _context.Books
+        .Include(b => b.Reviews)
+        .Include(b => b.ReadingLists)
+        .FirstOrDefaultAsync(b => b.BookId == id);
+
+    if (book == null) return;
+
+    if (book.Reviews.Any())
+        throw new InvalidOperationException("BOOK_HAS_REVIEWS");
+
+    _context.Books.Remove(book);
+    await _context.SaveChangesAsync();
+}
+
     }
 
 }
