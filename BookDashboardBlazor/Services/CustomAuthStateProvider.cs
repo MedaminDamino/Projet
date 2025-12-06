@@ -63,26 +63,33 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
 
     public static IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
     {
-        try
+        var claims = new List<Claim>();
+        var parts = jwt.Split('.');
+        if (parts.Length < 2) return claims;
+
+        var payload = parts[1];
+        var jsonBytes = ParseBase64WithoutPadding(payload);
+        var keyValuePairs = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonBytes);
+
+        if (keyValuePairs != null)
         {
-            var parts = jwt.Split('.');
-            if (parts.Length < 2)
+            foreach (var kvp in keyValuePairs)
             {
-                return new List<Claim>();
+                if (kvp.Value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        claims.Add(new Claim(kvp.Key, item.ToString()));
+                    }
+                }
+                else
+                {
+                    claims.Add(new Claim(kvp.Key, kvp.Value?.ToString() ?? ""));
+                }
             }
-            var payload = parts[1];
-            var jsonBytes = ParseBase64WithoutPadding(payload);
-            var keyValuePairs = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonBytes);
-            if (keyValuePairs == null)
-            {
-                return new List<Claim>();
-            }
-            return keyValuePairs.Select(kvp => new Claim(kvp.Key, kvp.Value?.ToString() ?? ""));
         }
-        catch
-        {
-            return new List<Claim>();
-        }
+
+        return claims;
     }
 
     private static byte[] ParseBase64WithoutPadding(string base64)
