@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace BookDashboardBlazor.Models;
@@ -10,8 +11,16 @@ public class LoginModel
 
 public class RegisterModel
 {
+    [Required]
+    [MinLength(3)]
     public string Username { get; set; } = string.Empty;
+
+    [Required]
+    [EmailAddress]
     public string Email { get; set; } = string.Empty;
+
+    [Required]
+    [MinLength(6)]
     public string Password { get; set; } = string.Empty;
 }
 
@@ -95,12 +104,18 @@ public class ReadingGoal
     public int Id { get; set; }
     [JsonPropertyName("userId")]
     public int UserId { get; set; }
+    [JsonPropertyName("applicationUserId")]
+    public string? ApplicationUserId { get; set; }
     [JsonPropertyName("year")]
     public int Year { get; set; }
     [JsonPropertyName("goal")]
     public int Goal { get; set; }
     [JsonPropertyName("progress")]
     public int Progress { get; set; }
+    [JsonPropertyName("bookId")]
+    public int BookId { get; set; }
+    [JsonPropertyName("book")]
+    public Book? Book { get; set; }
     [JsonPropertyName("createdAt")]
     public DateTime CreatedAt { get; set; }
 }
@@ -190,4 +205,11 @@ public class ApiResponse<T>
     
     [JsonPropertyName("errorCode")]
     public string? ErrorCode { get; set; }
+}
+
+public class RegistrationResult
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public List<string> Errors { get; set; } = new();
 }

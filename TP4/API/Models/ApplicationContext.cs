@@ -15,14 +15,30 @@ namespace API.Models
 
             modelBuilder.Entity<ReadingList>()
                 .HasOne(r => r.Book)
-                .WithMany()
+                .WithMany(b => b.ReadingLists)
                 .HasForeignKey(r => r.BookId);  // Changed from BookID to BookId
 
             modelBuilder.Entity<ReadingList>()
                 .HasOne(r => r.ApplicationUser)
-                .WithMany()
+                .WithMany(u => u.ReadingLists)
                 .HasForeignKey(r => r.ApplicationUserId)
                 .IsRequired(false);
+
+            modelBuilder.Entity<ReadingGoal>()
+                .HasOne(g => g.Book)
+                .WithMany()
+                .HasForeignKey(g => g.BookId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ReadingGoal>()
+                .HasOne(g => g.ApplicationUser)
+                .WithMany(u => u.ReadingGoals)
+                .HasForeignKey(g => g.ApplicationUserId)
+                .IsRequired(false);
+
+            modelBuilder.Entity<ReadingGoal>()
+                .HasIndex(g => new { g.ApplicationUserId, g.Year, g.BookId })
+                .IsUnique();
         }
 
         public DbSet<Author> Authors { get; set; }

@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using Blazored.LocalStorage;
 using BookDashboardBlazor.Models;
 using Microsoft.AspNetCore.Components.Authorization;
+using System.Net.Http.Headers;
 
 namespace BookDashboardBlazor.Services;
 
@@ -27,6 +28,8 @@ public class AuthService
             if (result != null)
             {
                 await _localStorage.SetItemAsync("token", result.Token);
+                _httpClient.DefaultRequestHeaders.Authorization =
+                    new AuthenticationHeaderValue("Bearer", result.Token.Replace("\"", ""));
                 ((CustomAuthStateProvider)_authStateProvider).NotifyUserAuthentication(result.Token);
                 return true;
             }
@@ -34,10 +37,56 @@ public class AuthService
         return false;
     }
 
-    public async Task<bool> Register(RegisterModel registerModel)
+    public async Task<RegistrationResult> Register(RegisterModel registerModel)
     {
         var response = await _httpClient.PostAsJsonAsync("api/Account/register", registerModel);
-        return response.IsSuccessStatusCode;
+        if (response.IsSuccessStatusCode)
+        {
+            return new RegistrationResult
+            {
+                Success = true,
+                Message = "Registration successful"
+            };
+        }
+
+        ApiResponse<List<string>>? apiError = null;
+        List<string> errors = new();
+        string message = "Registration failed";
+
+        try
+        {
+            apiError = await response.Content.ReadFromJsonAsync<ApiResponse<List<string>>>();
+            if (apiError != null)
+            {
+                message = string.IsNullOrWhiteSpace(apiError.Message) ? message : apiError.Message;
+                errors = apiError.Data ?? new List<string>();
+            }
+        }
+        catch
+        {
+            // If the response isn't JSON, fall back to raw text
+            var raw = await response.Content.ReadAsStringAsync();
+            if (!string.IsNullOrWhiteSpace(raw))
+            {
+                errors.Add(raw);
+            }
+        }
+
+        if (!errors.Any())
+        {
+            var raw = await response.Content.ReadAsStringAsync();
+            if (!string.IsNullOrWhiteSpace(raw))
+            {
+                errors.Add(raw);
+            }
+        }
+
+        return new RegistrationResult
+        {
+            Success = false,
+            Message = message,
+            Errors = errors
+        };
     }
 
     public async Task Logout()

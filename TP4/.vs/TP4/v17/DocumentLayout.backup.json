@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|f:\\c\\me\\glid2 projet\\dotnet\\projet\\tp4\\api\\controllers\\readinggoalcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|solutionrelative:api\\controllers\\readinggoalcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|f:\\c\\me\\glid2 projet\\dotnet\\projet\\tp4\\api\\controllers\\readinglistcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|solutionrelative:api\\controllers\\readinglistcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -27,10 +31,6 @@
       "RelativeMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|solutionrelative:api\\repositories\\ibookrepo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|f:\\c\\me\\glid2 projet\\dotnet\\projet\\tp4\\api\\controllers\\bookscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|solutionrelative:api\\controllers\\bookscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|f:\\c\\me\\glid2 projet\\dotnet\\projet\\tp4\\api\\dto\\bookcreatedto.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|solutionrelative:api\\dto\\bookcreatedto.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -49,10 +49,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|f:\\c\\me\\glid2 projet\\dotnet\\projet\\tp4\\api\\models\\review.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|solutionrelative:api\\models\\review.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|f:\\c\\me\\glid2 projet\\dotnet\\projet\\tp4\\api\\controllers\\readinggoalcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|solutionrelative:api\\controllers\\readinggoalcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|f:\\c\\me\\glid2 projet\\dotnet\\projet\\tp4\\api\\controllers\\genrecontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -89,10 +85,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|f:\\c\\me\\glid2 projet\\dotnet\\projet\\tp4\\api\\repositories\\authorrepo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|solutionrelative:api\\repositories\\authorrepo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|f:\\c\\me\\glid2 projet\\dotnet\\projet\\tp4\\api\\models\\readinggoal.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|solutionrelative:api\\models\\readinggoal.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{FDB7AEB7-8FCD-4DA2-AEDE-D1373989F658}|API\\API.csproj|f:\\c\\me\\glid2 projet\\dotnet\\projet\\tp4\\api\\models\\genre.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -150,11 +142,24 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 5,
+          "SelectedChildIndex": 0,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 0,
+              "Title": "ReadingGoalController.cs",
+              "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Controllers\\ReadingGoalController.cs",
+              "RelativeDocumentMoniker": "API\\Controllers\\ReadingGoalController.cs",
+              "ToolTip": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Controllers\\ReadingGoalController.cs",
+              "RelativeToolTip": "API\\Controllers\\ReadingGoalController.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-12-06T00:50:55.523Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
               "Title": "ImageService.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Services\\ImageService.cs",
               "RelativeDocumentMoniker": "API\\Services\\ImageService.cs",
@@ -166,7 +171,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "Book.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Models\\Book.cs",
               "RelativeDocumentMoniker": "API\\Models\\Book.cs",
@@ -178,7 +183,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 5,
               "Title": "BookRepo.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Repositories\\BookRepo.cs",
               "RelativeDocumentMoniker": "API\\Repositories\\BookRepo.cs",
@@ -190,7 +195,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 6,
               "Title": "IBookRepo.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Repositories\\IBookRepo.cs",
               "RelativeDocumentMoniker": "API\\Repositories\\IBookRepo.cs",
@@ -202,7 +207,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "BookReadDTO.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\DTO\\BookReadDTO.cs",
               "RelativeDocumentMoniker": "API\\DTO\\BookReadDTO.cs",
@@ -214,28 +219,16 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "ReadingListController.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Controllers\\ReadingListController.cs",
               "RelativeDocumentMoniker": "API\\Controllers\\ReadingListController.cs",
               "ToolTip": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Controllers\\ReadingListController.cs",
               "RelativeToolTip": "API\\Controllers\\ReadingListController.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAuwAQAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAuwAYAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-12-03T12:45:01.74Z",
               "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 6,
-              "Title": "BooksController.cs",
-              "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Controllers\\BooksController.cs",
-              "RelativeDocumentMoniker": "API\\Controllers\\BooksController.cs",
-              "ToolTip": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Controllers\\BooksController.cs",
-              "RelativeToolTip": "API\\Controllers\\BooksController.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAAsAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-11-30T14:34:57.61Z"
             },
             {
               "$type": "Document",
@@ -251,7 +244,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 12,
               "Title": "GenreController.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Controllers\\GenreController.cs",
               "RelativeDocumentMoniker": "API\\Controllers\\GenreController.cs",
@@ -260,18 +253,6 @@
               "ViewState": "AgIAABoAAAAAAAAAAAAuwEIAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-12-03T15:22:24.764Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 12,
-              "Title": "ReadingGoalController.cs",
-              "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Controllers\\ReadingGoalController.cs",
-              "RelativeDocumentMoniker": "API\\Controllers\\ReadingGoalController.cs",
-              "ToolTip": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Controllers\\ReadingGoalController.cs",
-              "RelativeToolTip": "API\\Controllers\\ReadingGoalController.cs",
-              "ViewState": "AgIAABoAAAAAAAAAAAAuwEIAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-03T15:22:28.411Z"
             },
             {
               "$type": "Document",
@@ -323,7 +304,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 13,
               "Title": "CommentController.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Controllers\\CommentController.cs",
               "RelativeDocumentMoniker": "API\\Controllers\\CommentController.cs",
@@ -335,7 +316,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 19,
+              "DocumentIndex": 18,
               "Title": "ReadingListRepo.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Repositories\\ReadingListRepo.cs",
               "RelativeDocumentMoniker": "API\\Repositories\\ReadingListRepo.cs",
@@ -347,7 +328,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 20,
+              "DocumentIndex": 19,
               "Title": "ApplicationContext.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Models\\ApplicationContext.cs",
               "RelativeDocumentMoniker": "API\\Models\\ApplicationContext.cs",
@@ -359,7 +340,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 14,
               "Title": "ReadingList.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Models\\ReadingList.cs",
               "RelativeDocumentMoniker": "API\\Models\\ReadingList.cs",
@@ -371,7 +352,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 18,
+              "DocumentIndex": 17,
               "Title": "ReadingListUpdateDto.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\DTO\\ReadingListUpdateDto.cs",
               "RelativeDocumentMoniker": "API\\DTO\\ReadingListUpdateDto.cs",
@@ -383,7 +364,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 16,
+              "DocumentIndex": 15,
               "Title": "ReadingListReadDto.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\DTO\\ReadingListReadDto.cs",
               "RelativeDocumentMoniker": "API\\DTO\\ReadingListReadDto.cs",
@@ -395,7 +376,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 17,
+              "DocumentIndex": 16,
               "Title": "ReadingListCreateDto.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\DTO\\ReadingListCreateDto.cs",
               "RelativeDocumentMoniker": "API\\DTO\\ReadingListCreateDto.cs",
@@ -407,7 +388,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 21,
+              "DocumentIndex": 20,
               "Title": "AuthorRepo.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Repositories\\AuthorRepo.cs",
               "RelativeDocumentMoniker": "API\\Repositories\\AuthorRepo.cs",
@@ -419,7 +400,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 23,
+              "DocumentIndex": 21,
               "Title": "Genre.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Models\\Genre.cs",
               "RelativeDocumentMoniker": "API\\Models\\Genre.cs",
@@ -431,19 +412,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 22,
-              "Title": "ReadingGoal.cs",
-              "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Models\\ReadingGoal.cs",
-              "RelativeDocumentMoniker": "API\\Models\\ReadingGoal.cs",
-              "ToolTip": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Models\\ReadingGoal.cs",
-              "RelativeToolTip": "API\\Models\\ReadingGoal.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-11-30T19:44:22.856Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 25,
+              "DocumentIndex": 23,
               "Title": "Author.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Models\\Author.cs",
               "RelativeDocumentMoniker": "API\\Models\\Author.cs",
@@ -455,7 +424,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 24,
+              "DocumentIndex": 22,
               "Title": "Comment.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Models\\Comment.cs",
               "RelativeDocumentMoniker": "API\\Models\\Comment.cs",
@@ -467,7 +436,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 27,
+              "DocumentIndex": 25,
               "Title": "IReviewRepo.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Repositories\\IReviewRepo.cs",
               "RelativeDocumentMoniker": "API\\Repositories\\IReviewRepo.cs",
@@ -479,7 +448,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 28,
+              "DocumentIndex": 26,
               "Title": "Program.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Program.cs",
               "RelativeDocumentMoniker": "API\\Program.cs",
@@ -491,7 +460,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 29,
+              "DocumentIndex": 27,
               "Title": "CommentRepo.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Repositories\\CommentRepo.cs",
               "RelativeDocumentMoniker": "API\\Repositories\\CommentRepo.cs",
@@ -503,7 +472,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 26,
+              "DocumentIndex": 24,
               "Title": "ReviewRepo.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Repositories\\ReviewRepo.cs",
               "RelativeDocumentMoniker": "API\\Repositories\\ReviewRepo.cs",
@@ -515,7 +484,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 31,
+              "DocumentIndex": 29,
               "Title": "IReadingGoalRepo.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Repositories\\IReadingGoalRepo.cs",
               "RelativeDocumentMoniker": "API\\Repositories\\IReadingGoalRepo.cs",
@@ -527,7 +496,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 32,
+              "DocumentIndex": 30,
               "Title": "IAuthorRepo.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Repositories\\IAuthorRepo.cs",
               "RelativeDocumentMoniker": "API\\Repositories\\IAuthorRepo.cs",
@@ -539,7 +508,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 30,
+              "DocumentIndex": 28,
               "Title": "ReadingGoalRepo.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Repositories\\ReadingGoalRepo.cs",
               "RelativeDocumentMoniker": "API\\Repositories\\ReadingGoalRepo.cs",
@@ -551,7 +520,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 33,
+              "DocumentIndex": 31,
               "Title": "ICommentRepo.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Repositories\\ICommentRepo.cs",
               "RelativeDocumentMoniker": "API\\Repositories\\ICommentRepo.cs",
@@ -563,7 +532,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 34,
+              "DocumentIndex": 32,
               "Title": "GenreRepository.cs",
               "DocumentMoniker": "F:\\C\\me\\GLID2 Projet\\DotNet\\Projet\\TP4\\API\\Repositories\\GenreRepository.cs",
               "RelativeDocumentMoniker": "API\\Repositories\\GenreRepository.cs",

@@ -41,7 +41,14 @@ namespace API
 
 
 
-            builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
+            builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+                {
+                    options.User.RequireUniqueEmail = true;
+                    options.Password.RequireDigit = false;
+                    options.Password.RequireNonAlphanumeric = false;
+                    options.Password.RequireUppercase = false;
+                    options.Password.RequiredLength = 6;
+                })
                 .AddEntityFrameworkStores<ApplicationContext>()
                 .AddDefaultTokenProviders();
 
@@ -96,15 +103,18 @@ JwtBearerDefaults.AuthenticationScheme;
                 };
             });
 
-            builder.Services.AddCors(
-                options => options.AddPolicy("AllowAll",
-                builder =>
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowClient", policy =>
                 {
-                    builder.AllowAnyOrigin()
-                    .AllowAnyMethod()
-                    .AllowAnyHeader();
-                })
-                );
+                    policy.WithOrigins("http://localhost:5198", "https://localhost:7198")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod();
+                });
+            });
+
+            // Authorization services (required for [Authorize] endpoints like ReadingGoal)
+            builder.Services.AddAuthorization();
 
             var app = builder.Build();
 
@@ -118,9 +128,9 @@ JwtBearerDefaults.AuthenticationScheme;
 
             // Serve static files (for uploaded images under wwwroot/uploads)
             app.UseStaticFiles();
+            app.UseCors("AllowClient");
             app.UseAuthentication();
             app.UseAuthorization();
-            app.UseCors("AllowAll");
 
             app.MapControllers();
 

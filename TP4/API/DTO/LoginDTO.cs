@@ -1,8 +1,16 @@
-﻿namespace API.DTO
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+
+namespace API.DTO
 {
     public class LoginDTO
     {
-        public string Username { get; set; }
-        public string Password { get; set; }
+        [Required]
+        [JsonPropertyName("username")]
+        public string Username { get; set; } = string.Empty;
+
+        [Required]
+        [JsonPropertyName("password")]
+        public string Password { get; set; } = string.Empty;
     }
 }

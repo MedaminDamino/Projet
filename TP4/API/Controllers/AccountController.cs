@@ -1,6 +1,7 @@
 ﻿using API.DTO;
 using API.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -25,71 +26,130 @@ namespace API.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register(RegisterDTO registerDTO)
+        [AllowAnonymous]
+        public async Task<IActionResult> Register([FromBody] RegisterDTO registerDTO)
         {
-            if(await userManager.FindByNameAsync(registerDTO.Username)!=null)
+            if (!ModelState.IsValid)
             {
-                return BadRequest("username Existe !!");
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => string.IsNullOrWhiteSpace(e.ErrorMessage) ? "Invalid data." : e.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new ApiResponse<List<string>>
+                {
+                    Success = false,
+                    Message = "Validation failed",
+                    ErrorCode = "validation_error",
+                    Data = errors
+                });
             }
-            else
+
+            if (await userManager.FindByNameAsync(registerDTO.Username) != null)
             {
-                ApplicationUser applicationUser = new ApplicationUser()
+                return BadRequest(new ApiResponse
                 {
-                    UserName = registerDTO.Username,
-                    Email = registerDTO.Email
-                };
-               var result =await userManager.CreateAsync(applicationUser,
-                    registerDTO.Password);
-                if (result.Succeeded)
-                {
-                    return Created();
-                }
-                return BadRequest("Problème de création");
+                    Success = false,
+                    Message = "Username already exists.",
+                    ErrorCode = "username_exists"
+                });
             }
-           
+
+            if (!string.IsNullOrWhiteSpace(registerDTO.Email) &&
+                await userManager.FindByEmailAsync(registerDTO.Email) != null)
+            {
+                return BadRequest(new ApiResponse
+                {
+                    Success = false,
+                    Message = "Email already in use.",
+                    ErrorCode = "email_exists"
+                });
+            }
+
+            var applicationUser = new ApplicationUser
+            {
+                UserName = registerDTO.Username,
+                Email = registerDTO.Email,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var result = await userManager.CreateAsync(applicationUser, registerDTO.Password);
+            if (result.Succeeded)
+            {
+                return Ok(new ApiResponse
+                {
+                    Success = true,
+                    Message = "Registration successful."
+                });
+            }
+
+            var identityErrors = result.Errors.Select(e => e.Description).ToList();
+            return BadRequest(new ApiResponse<List<string>>
+            {
+                Success = false,
+                Message = "Registration failed.",
+                ErrorCode = "identity_error",
+                Data = identityErrors
+            });
         }
         [HttpPost("login")]
-        public async Task<IActionResult>  login(LoginDTO loginDTO)
+        [AllowAnonymous]
+        public async Task<IActionResult> Login([FromBody] LoginDTO loginDTO)
         {
-            var user = await userManager.FindByNameAsync(loginDTO.Username);
-            if(user==null)
+            if (!ModelState.IsValid)
             {
-                return Unauthorized("username or password incorrect");
-            }
-            if(await userManager.CheckPasswordAsync(user,loginDTO.Password))
-            {
-                List<Claim> claims = new List<Claim>();
-                claims.Add(new Claim(ClaimTypes.Name,loginDTO.Username ));
-                claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id));
-                claims.Add(new Claim(JwtRegisteredClaimNames.Jti,
-                    Guid.NewGuid().ToString()));
-
-                var key = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(
-                    configuration["JWT:SecretKey"]));
-
-                var sc=new SigningCredentials(key, SecurityAlgorithms.HmacSha256 );
-
-
-                var token = new JwtSecurityToken(
-                    audience: configuration["JWT:audience"],
-                    issuer: configuration["JWT:issuer"],
-                    claims: claims,
-                    signingCredentials:sc,
-                    expires: DateTime.Now.AddHours(1)
-                    );
-
-                var _token = new
+                return BadRequest(new ApiResponse<List<string>>
                 {
-
-                token= new JwtSecurityTokenHandler().WriteToken(token),
-                expiration= token.ValidTo,
-                username= loginDTO.Username,
-                };        
-
-                return Ok( _token );    
+                    Success = false,
+                    Message = "Validation failed",
+                    ErrorCode = "validation_error",
+                    Data = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+                });
             }
-            return Unauthorized("invalid crendentials");
+
+            // Allow login with username or email
+            var user = await userManager.FindByNameAsync(loginDTO.Username)
+                       ?? await userManager.FindByEmailAsync(loginDTO.Username);
+
+            if (user == null || !await userManager.CheckPasswordAsync(user, loginDTO.Password))
+            {
+                return Unauthorized(new ApiResponse
+                {
+                    Success = false,
+                    Message = "Username or password incorrect",
+                    ErrorCode = "invalid_credentials"
+                });
+            }
+
+            List<Claim> claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, user.UserName ?? loginDTO.Username),
+                new Claim(ClaimTypes.NameIdentifier, user.Id),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(
+                configuration["JWT:SecretKey"]));
+
+            var sc = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(
+                audience: configuration["JWT:audience"],
+                issuer: configuration["JWT:issuer"],
+                claims: claims,
+                signingCredentials: sc,
+                expires: DateTime.Now.AddHours(1)
+                );
+
+            var _token = new
+            {
+                token = new JwtSecurityTokenHandler().WriteToken(token),
+                expiration = token.ValidTo,
+                username = user.UserName ?? loginDTO.Username,
+            };
+
+            return Ok(_token);
         }
     }
 }

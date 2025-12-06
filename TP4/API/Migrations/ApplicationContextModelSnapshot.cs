@@ -146,6 +146,46 @@ namespace API.Migrations
                     b.ToTable("Genres");
                 });
 
+            modelBuilder.Entity("API.Models.ReadingGoal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ApplicationUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Goal")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Progress")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("ApplicationUserId", "Year", "BookId")
+                        .IsUnique()
+                        .HasFilter("[ApplicationUserId] IS NOT NULL");
+
+                    b.ToTable("ReadingGoals");
+                });
+
             modelBuilder.Entity("Author", b =>
                 {
                     b.Property<int>("AuthorId")
@@ -332,39 +372,6 @@ namespace API.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("ReadingGoal", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ApplicationUserId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Goal")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Progress")
-                        .HasColumnType("int");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Year")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ApplicationUserId");
-
-                    b.ToTable("ReadingGoals");
-                });
-
             modelBuilder.Entity("ReadingList", b =>
                 {
                     b.Property<int>("ReadingListID")
@@ -379,13 +386,7 @@ namespace API.Migrations
                     b.Property<string>("ApplicationUserId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("ApplicationUserId1")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<int>("BookId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("BookId1")
                         .HasColumnType("int");
 
                     b.Property<string>("Status")
@@ -396,11 +397,7 @@ namespace API.Migrations
 
                     b.HasIndex("ApplicationUserId");
 
-                    b.HasIndex("ApplicationUserId1");
-
                     b.HasIndex("BookId");
-
-                    b.HasIndex("BookId1");
 
                     b.ToTable("ReadingLists");
                 });
@@ -457,6 +454,23 @@ namespace API.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("Genre");
+                });
+
+            modelBuilder.Entity("API.Models.ReadingGoal", b =>
+                {
+                    b.HasOne("API.Models.ApplicationUser", "ApplicationUser")
+                        .WithMany("ReadingGoals")
+                        .HasForeignKey("ApplicationUserId");
+
+                    b.HasOne("API.Models.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApplicationUser");
+
+                    b.Navigation("Book");
                 });
 
             modelBuilder.Entity("Comment", b =>
@@ -525,32 +539,17 @@ namespace API.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ReadingGoal", b =>
-                {
-                    b.HasOne("API.Models.ApplicationUser", null)
-                        .WithMany("ReadingGoals")
-                        .HasForeignKey("ApplicationUserId");
-                });
-
             modelBuilder.Entity("ReadingList", b =>
                 {
                     b.HasOne("API.Models.ApplicationUser", "ApplicationUser")
-                        .WithMany()
+                        .WithMany("ReadingLists")
                         .HasForeignKey("ApplicationUserId");
 
-                    b.HasOne("API.Models.ApplicationUser", null)
-                        .WithMany("ReadingLists")
-                        .HasForeignKey("ApplicationUserId1");
-
                     b.HasOne("API.Models.Book", "Book")
-                        .WithMany()
+                        .WithMany("ReadingLists")
                         .HasForeignKey("BookId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("API.Models.Book", null)
-                        .WithMany("ReadingLists")
-                        .HasForeignKey("BookId1");
 
                     b.Navigation("ApplicationUser");
 

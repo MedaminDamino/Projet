@@ -21,7 +21,7 @@
 
 <button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add to Reading List</button>
 
-<GenericTable Items="readingList" OnEdit="OpenEditModal" OnDelete="DeleteReadingList">
+<GenericTable TItem="ReadingList" Items="readingList" OnEdit="@OpenEditModal" OnDelete="@DeleteReadingList">
     <TableHeader>
         <th>ID</th>
         <th>Book Title</th>

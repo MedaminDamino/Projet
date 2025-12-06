@@ -24,8 +24,8 @@
                     <tr>
                         @RowTemplate(item)
                         <td>
-                            <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => OnEdit?.Invoke(item)">Edit</button>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="async () => { if (OnDelete != null) await OnDelete(item); }">Delete</button>
+                            <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => OnEdit.InvokeAsync(item)">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="async () => { if (OnDelete.HasDelegate) await OnDelete.InvokeAsync(item); }">Delete</button>
                         </td>
                     </tr>
                 }
@@ -46,8 +46,8 @@
     [Parameter] public IEnumerable<TItem> Items { get; set; } = new List<TItem>();
     [Parameter] public RenderFragment TableHeader { get; set; } = null!;
     [Parameter] public RenderFragment<TItem> RowTemplate { get; set; } = null!;
-    [Parameter] public Action<TItem>? OnEdit { get; set; }
-    [Parameter] public Func<TItem, Task>? OnDelete { get; set; }
+    [Parameter] public EventCallback<TItem> OnEdit { get; set; }
+    [Parameter] public EventCallback<TItem> OnDelete { get; set; }
 }
 @* <style>
 .search-box {

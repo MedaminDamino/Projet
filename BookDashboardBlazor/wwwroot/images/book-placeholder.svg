@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" role="img" aria-label="No cover">
+  <rect width="120" height="120" fill="#f3f4f6" rx="12" ry="12" />
+  <path d="M36 30h48v6H36zM36 42h24v6H36zM36 96h48v-6H36zM36 84h48v-6H36zM36 72h48v-6H36zM36 60h48v-6H36z" fill="#e5e7eb"/>
+  <rect x="42" y="48" width="36" height="30" fill="#ffffff" stroke="#d1d5db" rx="4" ry="4"/>
+  <path d="M46 74l10-12 8 10 6-6 6 8H46z" fill="#cbd5e1"/>
+  <circle cx="72" cy="58" r="5" fill="#e5e7eb"/>
+  <text x="60" y="110" font-family="Arial, sans-serif" font-size="10" text-anchor="middle" fill="#9ca3af">No cover</text>
+</svg>

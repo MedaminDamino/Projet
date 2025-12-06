@@ -332,6 +332,7 @@ F:\C\me\GLID2 Projet\DotNet\TP4\API\bin\Debug\net9.0\zh-Hant\Microsoft.CodeAnaly
 F:\C\me\GLID2 Projet\DotNet\TP4\API\obj\Debug\net9.0\staticwebassets.upToDateCheck.txt
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\appsettings.Development.json
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\appsettings.json
+F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\API.staticwebassets.runtime.json
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\API.staticwebassets.endpoints.json
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\API.exe
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\API.deps.json
@@ -476,6 +477,7 @@ F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\API.AssemblyInfo.cs
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\API.csproj.CoreCompileInputs.cache
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\API.MvcApplicationPartsAssemblyInfo.cs
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\API.MvcApplicationPartsAssemblyInfo.cache
+F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\API.sourcelink.json
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\rjimswa.dswa.cache.json
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\rjsmrazor.dswa.cache.json
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\rjsmcshtml.dswa.cache.json
@@ -491,5 +493,11 @@ F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\refint\API.dll
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\API.pdb
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\API.genruntimeconfig.cache
 F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\ref\API.dll
-F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\API.staticwebassets.runtime.json
-F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\obj\Debug\net9.0\staticwebassets.upToDateCheck.txt
+F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\Microsoft.Extensions.Caching.Abstractions.dll
+F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\Microsoft.Extensions.Caching.Memory.dll
+F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\Microsoft.Extensions.DependencyInjection.dll
+F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\Microsoft.Extensions.DependencyInjection.Abstractions.dll
+F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\Microsoft.Extensions.Logging.dll
+F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\Microsoft.Extensions.Logging.Abstractions.dll
+F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\Microsoft.Extensions.Options.dll
+F:\C\me\GLID2 Projet\DotNet\Projet\TP4\API\bin\Debug\net9.0\Microsoft.Extensions.Primitives.dll

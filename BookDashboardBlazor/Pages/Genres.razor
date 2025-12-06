@@ -7,7 +7,7 @@
 
 <button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add Genre</button>
 
-<GenericTable Items="genres" OnEdit="OpenEditModal" OnDelete="DeleteGenre">
+<GenericTable TItem="Genre" Items="genres" OnEdit="@OpenEditModal" OnDelete="@DeleteGenre">
     <TableHeader>
         <th>ID</th>
         <th>Name</th>
@@ -31,10 +31,20 @@
     </EditForm>
 </Modal>
 
+<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal">
+    <p>Are you sure you want to delete <strong>@itemToDelete?.GenreName</strong>?</p>
+    <div class="mt-3">
+        <button class="btn btn-danger me-2" @onclick="ConfirmDelete">Delete</button>
+        <button class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
+    </div>
+</Modal>
+
 @code {
     private List<Genre> genres = new();
     private Genre currentGenre = new();
     private bool showModal = false;
+    private bool showDeleteModal = false;
+    private Genre? itemToDelete = null;
     private string modalTitle = "Add Genre";
 
     protected override async Task OnInitializedAsync()
@@ -69,6 +79,7 @@
         currentGenre = new Genre();
         modalTitle = "Add Genre";
         showModal = true;
+        StateHasChanged();
     }
 
     private void OpenEditModal(Genre genre)
@@ -80,11 +91,13 @@
         };
         modalTitle = "Edit Genre";
         showModal = true;
+        StateHasChanged();
     }
 
     private void CloseModal()
     {
         showModal = false;
+        StateHasChanged();
     }
 
     private async Task SaveGenre()
@@ -111,6 +124,7 @@
             }
             showModal = false;
             await LoadGenres();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -118,11 +132,25 @@
         }
     }
 
-    private async Task DeleteGenre(Genre genre)
+    private Task DeleteGenre(Genre genre)
     {
+        itemToDelete = genre;
+        showDeleteModal = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (itemToDelete == null) return;
+
         try
         {
-            var response = await Http.DeleteAsync($"api/Genre/{genre.GenreId}");
+            var response = await Http.DeleteAsync($"api/Genre/{itemToDelete.GenreId}");
+            showDeleteModal = false;
+            itemToDelete = null;
+            StateHasChanged();
+
             if (response.IsSuccessStatusCode)
             {
                 await LoadGenres();
@@ -135,6 +163,17 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Exception deleting genre: {ex.Message}");
+            showDeleteModal = false;
+            itemToDelete = null;
+            StateHasChanged();
         }
+    }
+
+    private Task CloseDeleteModal()
+    {
+        showDeleteModal = false;
+        itemToDelete = null;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 }

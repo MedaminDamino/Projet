@@ -7,7 +7,7 @@
 
 <button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add Review</button>
 
-<GenericTable Items="reviews" OnEdit="OpenEditModal" OnDelete="DeleteReview">
+<GenericTable TItem="Review" Items="reviews" OnEdit="@OpenEditModal" OnDelete="@DeleteReview">
     <TableHeader>
         <th>ID</th>
         <th>Book</th>
@@ -51,11 +51,21 @@
     </EditForm>
 </Modal>
 
+<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal">
+    <p>Are you sure you want to delete this review for <strong>@GetBookTitle(itemToDelete?.BookId ?? 0)</strong>?</p>
+    <div class="mt-3">
+        <button class="btn btn-danger me-2" @onclick="ConfirmDelete">Delete</button>
+        <button class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
+    </div>
+</Modal>
+
 @code {
     private List<Review> reviews = new();
     private List<Book> books = new();
     private Review currentReview = new();
     private bool showModal = false;
+    private bool showDeleteModal = false;
+    private Review? itemToDelete = null;
     private string modalTitle = "Add Review";
 
     protected override async Task OnInitializedAsync()
@@ -105,6 +115,7 @@
         currentReview = new Review { CreatedAt = DateTime.Now };
         modalTitle = "Add Review";
         showModal = true;
+        StateHasChanged();
     }
 
     private void OpenEditModal(Review review)
@@ -120,9 +131,14 @@
         };
         modalTitle = "Edit Review";
         showModal = true;
+        StateHasChanged();
     }
 
-    private void CloseModal() => showModal = false;
+    private void CloseModal()
+    {
+        showModal = false;
+        StateHasChanged();
+    }
 
     private async Task SaveReview()
     {
@@ -147,6 +163,7 @@
                 }
             }
             showModal = false;
+            StateHasChanged();
             await LoadData();
         }
         catch (Exception ex)
@@ -155,11 +172,25 @@
         }
     }
 
-    private async Task DeleteReview(Review review)
+    private Task DeleteReview(Review review)
     {
+        itemToDelete = review;
+        showDeleteModal = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (itemToDelete == null) return;
+
         try
         {
-            var response = await Http.DeleteAsync($"api/Review/{review.ReviewID}");
+            var response = await Http.DeleteAsync($"api/Review/{itemToDelete.ReviewID}");
+            showDeleteModal = false;
+            itemToDelete = null;
+            StateHasChanged();
+
             if (response.IsSuccessStatusCode)
             {
                 await LoadData();
@@ -172,6 +203,17 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Exception deleting review: {ex.Message}");
+            showDeleteModal = false;
+            itemToDelete = null;
+            StateHasChanged();
         }
+    }
+
+    private Task CloseDeleteModal()
+    {
+        showDeleteModal = false;
+        itemToDelete = null;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 }

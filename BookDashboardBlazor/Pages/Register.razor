@@ -11,6 +11,17 @@
         {
             <div class="alert alert-danger">@errorMessage</div>
         }
+        @if (serverErrors.Any())
+        {
+            <div class="alert alert-warning">
+                <ul class="mb-0">
+                    @foreach (var err in serverErrors)
+                    {
+                        <li>@err</li>
+                    }
+                </ul>
+            </div>
+        }
         <EditForm Model="@registerModel" OnValidSubmit="HandleRegister">
             <DataAnnotationsValidator />
             <ValidationSummary />
@@ -38,17 +49,22 @@
 @code {
     private RegisterModel registerModel = new();
     private string errorMessage = string.Empty;
+    private List<string> serverErrors = new();
 
     private async Task HandleRegister()
     {
+        errorMessage = string.Empty;
+        serverErrors.Clear();
+
         var result = await AuthService.Register(registerModel);
-        if (result)
+        if (result.Success)
         {
             NavigationManager.NavigateTo("/login");
         }
         else
         {
-            errorMessage = "Registration failed";
+            errorMessage = string.IsNullOrWhiteSpace(result.Message) ? "Registration failed" : result.Message;
+            serverErrors = result.Errors ?? new List<string>();
         }
     }
 }

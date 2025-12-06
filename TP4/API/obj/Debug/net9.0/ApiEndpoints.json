@@ -416,8 +416,8 @@
     "Order": 0,
     "Parameters": [
       {
-        "Name": "goal",
-        "Type": "ReadingGoal",
+        "Name": "goalDto",
+        "Type": "API.DTO.ReadingGoalCreateDto",
         "IsRequired": true
       }
     ],
@@ -454,7 +454,7 @@
       },
       {
         "Name": "updated",
-        "Type": "ReadingGoal",
+        "Type": "API.DTO.ReadingGoalUpdateDto",
         "IsRequired": true
       }
     ],

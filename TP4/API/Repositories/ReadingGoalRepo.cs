@@ -13,14 +13,16 @@ namespace API.Repositories
             _context = context;
         }
 
-        public async Task<IEnumerable<ReadingGoal>> GetAllAsync()
-        {
-            return await _context.ReadingGoals.ToListAsync();
-        }
+        public async Task<IEnumerable<ReadingGoal>> GetAllAsync() =>
+            await _context.ReadingGoals
+                .Include(g => g.Book)
+                .ToListAsync();
 
         public async Task<ReadingGoal?> GetByIdAsync(int id)
         {
-            return await _context.ReadingGoals.FirstOrDefaultAsync(r => r.Id == id);
+            return await _context.ReadingGoals
+                .Include(g => g.Book)
+                .FirstOrDefaultAsync(r => r.Id == id);
         }
 
         public async Task AddAsync(ReadingGoal goal)
@@ -44,6 +46,15 @@ namespace API.Repositories
             await _context.SaveChangesAsync();
 
             return true;
+        }
+
+        public async Task<bool> ExistsForUserYearBookAsync(string? applicationUserId, int year, int bookId, int? excludeId = null)
+        {
+            return await _context.ReadingGoals.AnyAsync(g =>
+                g.ApplicationUserId == applicationUserId &&
+                g.Year == year &&
+                g.BookId == bookId &&
+                (!excludeId.HasValue || g.Id != excludeId.Value));
         }
     }
 }

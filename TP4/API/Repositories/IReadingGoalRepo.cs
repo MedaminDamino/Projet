@@ -9,5 +9,6 @@ namespace API.Interfaces
         Task AddAsync(ReadingGoal goal);
         Task UpdateAsync(ReadingGoal goal);
         Task<bool> DeleteAsync(int id);
+        Task<bool> ExistsForUserYearBookAsync(string? applicationUserId, int year, int bookId, int? excludeId = null);
     }
 }

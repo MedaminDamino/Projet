@@ -1,4 +1,4 @@
-﻿using API.DTO;
+using API.DTO;
 using API.Interfaces;
 using API.Models;
 using API.Services;
@@ -32,7 +32,7 @@ namespace API.Controllers
                 GenreId = b.GenreId,
                 PublishYear = b.PublishYear,
                 Description = b.Description,
-                ImageUrl = b.ImageUrl
+                ImageUrl = BuildPublicImageUrl(b.ImageUrl)
             });
             return Ok(result);
         }
@@ -55,7 +55,7 @@ namespace API.Controllers
                 GenreId = book.GenreId,
                 PublishYear = book.PublishYear,
                 Description = book.Description,
-                ImageUrl = book.ImageUrl
+                ImageUrl = BuildPublicImageUrl(book.ImageUrl)
             };
             return Ok(result);
         }
@@ -94,7 +94,19 @@ namespace API.Controllers
             };
 
             await bookRepo.CreateAsync(newBook);
-            return CreatedAtAction(nameof(GetById), new { id = newBook.BookId }, newBook);
+
+            var responseDto = new BookReadDto
+            {
+                BookId = newBook.BookId,
+                Title = newBook.Title,
+                AuthorId = newBook.AuthorId,
+                GenreId = newBook.GenreId,
+                PublishYear = newBook.PublishYear,
+                Description = newBook.Description,
+                ImageUrl = BuildPublicImageUrl(newBook.ImageUrl)
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = newBook.BookId }, responseDto);
         }
 
         // UPDATE BOOK
@@ -112,13 +124,11 @@ namespace API.Controllers
             {
                 try
                 {
-                    // Delete old image if it exists
                     if (!string.IsNullOrEmpty(book.ImageUrl))
                     {
                         imageService.DeleteImage(book.ImageUrl);
                     }
 
-                    // Upload new image
                     book.ImageUrl = await imageService.UploadImageAsync(dto.Image, "books");
                 }
                 catch (ArgumentException ex)
@@ -138,7 +148,19 @@ namespace API.Controllers
             book.Description = dto.Description;
 
             await bookRepo.UpdateAsync(book);
-            return Ok(new { message = "Livre modifié." });
+
+            var updatedDto = new BookReadDto
+            {
+                BookId = book.BookId,
+                Title = book.Title,
+                AuthorId = book.AuthorId,
+                GenreId = book.GenreId,
+                PublishYear = book.PublishYear,
+                Description = book.Description,
+                ImageUrl = BuildPublicImageUrl(book.ImageUrl)
+            };
+
+            return Ok(updatedDto);
         }
 
         // DELETE BOOK
@@ -151,14 +173,36 @@ namespace API.Controllers
                 return NotFound(new { message = "Livre introuvable !" });
             }
 
-            // Delete image if it exists
             if (!string.IsNullOrEmpty(book.ImageUrl))
             {
                 imageService.DeleteImage(book.ImageUrl);
             }
 
             await bookRepo.DeleteAsync(id);
-            return Ok(new { message = "Livre supprimé." });
+            return Ok(new { message = "Book deleted." });
+        }
+
+        private string? BuildPublicImageUrl(string? imagePath)
+        {
+            if (string.IsNullOrWhiteSpace(imagePath))
+            {
+                return null;
+            }
+
+            if (Uri.TryCreate(imagePath, UriKind.Absolute, out var absolute) &&
+                (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps))
+            {
+                return absolute.ToString();
+            }
+
+            var request = HttpContext?.Request;
+            if (request == null)
+            {
+                return imagePath;
+            }
+
+            var baseUrl = $"{request.Scheme}://{request.Host}{request.PathBase}";
+            return new Uri(new Uri(baseUrl), imagePath.TrimStart('/')).ToString();
         }
     }
 }

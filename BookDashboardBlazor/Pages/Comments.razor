@@ -7,7 +7,7 @@
 
 <button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add Comment</button>
 
-<GenericTable Items="comments" OnEdit="OpenEditModal" OnDelete="DeleteComment">
+<GenericTable TItem="Comment" Items="comments" OnEdit="@OpenEditModal" OnDelete="@DeleteComment">
     <TableHeader>
         <th>ID</th>
         <th>Review ID</th>
@@ -45,11 +45,21 @@
     </EditForm>
 </Modal>
 
+<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal">
+    <p>Are you sure you want to delete this comment?</p>
+    <div class="mt-3">
+        <button class="btn btn-danger me-2" @onclick="ConfirmDelete">Delete</button>
+        <button class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
+    </div>
+</Modal>
+
 @code {
     private List<Comment> comments = new();
     private List<Review> reviews = new();
     private Comment currentComment = new();
     private bool showModal = false;
+    private bool showDeleteModal = false;
+    private Comment? itemToDelete = null;
     private string modalTitle = "Add Comment";
 
     protected override async Task OnInitializedAsync()
@@ -97,6 +107,7 @@
         currentComment = new Comment { CreatedAt = DateTime.Now };
         modalTitle = "Add Comment";
         showModal = true;
+        StateHasChanged();
     }
 
     private void OpenEditModal(Comment comment)
@@ -111,9 +122,14 @@
         };
         modalTitle = "Edit Comment";
         showModal = true;
+        StateHasChanged();
     }
 
-    private void CloseModal() => showModal = false;
+    private void CloseModal()
+    {
+        showModal = false;
+        StateHasChanged();
+    }
 
     private async Task SaveComment()
     {
@@ -138,6 +154,7 @@
                 }
             }
             showModal = false;
+            StateHasChanged();
             await LoadData();
         }
         catch (Exception ex)
@@ -146,11 +163,25 @@
         }
     }
 
-    private async Task DeleteComment(Comment comment)
+    private Task DeleteComment(Comment comment)
     {
+        itemToDelete = comment;
+        showDeleteModal = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (itemToDelete == null) return;
+
         try
         {
-            var response = await Http.DeleteAsync($"api/Comment/{comment.CommentID}");
+            var response = await Http.DeleteAsync($"api/Comment/{itemToDelete.CommentID}");
+            showDeleteModal = false;
+            itemToDelete = null;
+            StateHasChanged();
+
             if (response.IsSuccessStatusCode)
             {
                 await LoadData();
@@ -163,6 +194,17 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Exception deleting comment: {ex.Message}");
+            showDeleteModal = false;
+            itemToDelete = null;
+            StateHasChanged();
         }
+    }
+
+    private Task CloseDeleteModal()
+    {
+        showDeleteModal = false;
+        itemToDelete = null;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 }

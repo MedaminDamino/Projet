@@ -16,7 +16,7 @@
 
 <button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add Book</button>
 
-<GenericTable Items="books" OnEdit="OpenEditModal" OnDelete="DeleteBook">
+<GenericTable TItem="Book" Items="books" OnEdit="@OpenEditModal" OnDelete="@DeleteBook">
     <TableHeader>
         <th style="width:80px;">Cover</th>
         <th>ID</th>
@@ -28,16 +28,12 @@
     </TableHeader>
     <RowTemplate Context="book">
         <td>
-            @if (!string.IsNullOrWhiteSpace(book.ImageUrl))
-            {
+            <div style="width:60px;height:60px;background:#f3f4f6;border-radius:6px;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;overflow:hidden;">
                 <img src="@ResolveImageUrl(book.ImageUrl)"
                      alt="@($"{book.Title} cover")"
-                     style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;" />
-            }
-            else
-            {
-                <div class="text-muted small">No image</div>
-            }
+                     onerror="@ImageErrorFallbackJs"
+                     style="width:100%;height:100%;object-fit:cover;display:block;" />
+            </div>
         </td>
         <td>@book.BookId</td>
         <td>@book.Title</td>
@@ -99,17 +95,7 @@
             <label class="form-label fw-semibold">Cover Image</label>
             <div class="upload-card d-flex align-items-center gap-3 flex-wrap">
                 <div class="cover-preview d-flex align-items-center justify-content-center text-muted">
-                    @if (!string.IsNullOrWhiteSpace(imagePreviewUrl))
-                    {
-                        <img src="@imagePreviewUrl" alt="Cover preview" />
-                    }
-                    else
-                    {
-                        <div class="text-center small">
-                            <i class="bi bi-image fs-5 d-block mb-1"></i>
-                            No image
-                        </div>
-                    }
+                    <img src="@imagePreviewUrl" alt="Cover preview" onerror="@ImageErrorFallbackJs" />
                 </div>
                 <div class="flex-grow-1">
                     <label class="btn btn-outline-primary btn-sm mb-2">
@@ -149,6 +135,9 @@
 </Modal>
 
 @code {
+    private const string PlaceholderImage = "/images/book-placeholder.svg";
+    private string ImageErrorFallbackJs => $"this.onerror=null; this.src='{PlaceholderImage}';";
+
     private List<Book> books = new();
     private List<Author> authors = new();
     private List<Genre> genres = new();
@@ -157,7 +146,7 @@
     private Book? itemToDelete = null; // for delete modal
 
     private IBrowserFile? selectedImageFile;
-    private string? imagePreviewUrl;
+    private string imagePreviewUrl = PlaceholderImage;
     private bool showModal = false;
     private string modalTitle = "Add Book";
 
@@ -232,9 +221,10 @@
         Console.WriteLine("[Books] OpenCreateModal clicked");
         currentBook = new Book();
         selectedImageFile = null;
-        imagePreviewUrl = null;
+        imagePreviewUrl = PlaceholderImage;
         modalTitle = "Add Book";
         showModal = true;
+        StateHasChanged();
     }
 
     private void OpenEditModal(Book book)
@@ -251,15 +241,17 @@
             ImageUrl = book.ImageUrl
         };
         selectedImageFile = null;
-        imagePreviewUrl = book.ImageUrl;
+        imagePreviewUrl = ResolveImageUrl(book.ImageUrl);
         modalTitle = "Edit Book";
         showModal = true;
+        StateHasChanged();
     }
 
     private void CloseModal()
     {
         Console.WriteLine("[Books] CloseModal called");
         showModal = false;
+        StateHasChanged();
     }
 
     private async Task SaveBook()
@@ -305,20 +297,27 @@
             var apiResponse =
                 System.Text.Json.JsonSerializer.Deserialize<ApiResponse<Book>>(jsonContent, options);
 
-            if (!response.IsSuccessStatusCode || apiResponse == null || !apiResponse.Success)
+            if (apiResponse != null && apiResponse.Success)
+            {
+                Console.WriteLine($"[Books] SaveBook ApiResponse.Success = true. BookId={apiResponse.Data?.BookId}");
+            }
+            else if (!response.IsSuccessStatusCode)
             {
                 errorMessage = apiResponse?.Message ??
                                $"Failed to save book (status {(int)response.StatusCode}).";
                 Console.WriteLine($"[Books] Error saving book: {errorMessage} (Code: {apiResponse?.ErrorCode})");
                 return;
             }
-
-            Console.WriteLine($"[Books] SaveBook ApiResponse.Success = true. BookId={apiResponse.Data?.BookId}");
+            else
+            {
+                // No wrapper but HTTP OK -> treat as success
+                Console.WriteLine("[Books] SaveBook succeeded with non-wrapped response.");
+            }
         }
         catch (System.Text.Json.JsonException jsonEx)
         {
             Console.WriteLine($"[Books] JSON parse error in SaveBook: {jsonEx.Message}");
-            // Fallback: if Books endpoint returns plain Book or no wrapper
+            // Fallback: if Books endpoint returns plain Book or simple message
             if (!response.IsSuccessStatusCode)
             {
                 errorMessage = $"Failed to save book (status {(int)response.StatusCode}). Server says: {jsonContent}";
@@ -342,6 +341,7 @@
         await Task.CompletedTask; // keep async signature
         itemToDelete = book;
         showDeleteModal = true;
+        StateHasChanged();
     }
 
     private void CloseDeleteModal()
@@ -349,6 +349,7 @@
         Console.WriteLine("[Books] CloseDeleteModal called");
         showDeleteModal = false;
         itemToDelete = null;
+        StateHasChanged();
     }
 
     private async Task ConfirmDelete()
@@ -364,9 +365,11 @@
         try
         {
             errorMessage = null;
+            var deletingId = itemToDelete.BookId;
+            var deletingTitle = itemToDelete.Title;
 
-            Console.WriteLine($"[Books] Sending DELETE api/Books/{itemToDelete.BookId}");
-            var response = await Http.DeleteAsync($"api/Books/{itemToDelete.BookId}");
+            Console.WriteLine($"[Books] Sending DELETE api/Books/{deletingId}");
+            var response = await Http.DeleteAsync($"api/Books/{deletingId}");
             var jsonContent = await response.Content.ReadAsStringAsync();
 
             Console.WriteLine($"[Books] ConfirmDelete HTTP status: {(int)response.StatusCode} {response.StatusCode}");
@@ -385,12 +388,13 @@
 
                 if (apiResponse != null && apiResponse.Success)
                 {
-                    Console.WriteLine($"[Books] ConfirmDelete ApiResponse.Success = true. Removing from local list BookId={itemToDelete.BookId}");
+                    Console.WriteLine($"[Books] ConfirmDelete ApiResponse.Success = true. Removing from local list BookId={deletingId}");
 
-                    books.RemoveAll(b => b.BookId == itemToDelete.BookId);
+                    books.RemoveAll(b => b.BookId == deletingId);
 
                     showDeleteModal = false;
                     itemToDelete = null;
+                    StateHasChanged();
 
                     Console.WriteLine("[Books] ConfirmDelete reloading data from server...");
                     await LoadData();
@@ -413,8 +417,9 @@
                 }
                 else
                 {
-                    Console.WriteLine($"[Books] ConfirmDelete fallback: treating delete as success. Removing BookId={itemToDelete.BookId} locally.");
-                    books.RemoveAll(b => b.BookId == itemToDelete.BookId);
+                    Console.WriteLine($"[Books] ConfirmDelete fallback: treating delete as success. Removing BookId={deletingId} locally.");
+                    books.RemoveAll(b => b.BookId == deletingId);
+                    StateHasChanged();
                 }
             }
 
@@ -427,6 +432,7 @@
             Console.WriteLine($"[Books] Exception in ConfirmDelete: {ex}");
             showDeleteModal = false;
             itemToDelete = null;
+            StateHasChanged();
         }
     }
 
@@ -490,7 +496,7 @@
             errorMessage = $"Image load failed: {ex.Message}";
             Console.WriteLine($"[Books] Exception in OnImageSelected: {ex}");
             selectedImageFile = null;
-            imagePreviewUrl = null;
+            imagePreviewUrl = PlaceholderImage;
         }
     }
 
@@ -519,17 +525,32 @@
         return content;
     }
 
-    private string? ResolveImageUrl(string? url)
+    private string ResolveImageUrl(string? url)
     {
-        if (string.IsNullOrWhiteSpace(url)) return null;
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return PlaceholderImage;
+        }
 
-        // If already absolute, return as-is
-        if (Uri.TryCreate(url, UriKind.Absolute, out var absolute))
+        if (Uri.TryCreate(url, UriKind.Absolute, out var absolute) &&
+            (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps))
+        {
             return absolute.ToString();
+        }
 
-        // Use BaseAddress if set, otherwise localhost
-        var baseUri = Http.BaseAddress ?? new Uri("http://localhost/");
-        var combined = new Uri(baseUri, url.TrimStart('/'));
-        return combined.ToString();
+        var baseUri = Http.BaseAddress;
+        if (baseUri == null || baseUri.Scheme == Uri.UriSchemeFile)
+        {
+            baseUri = new Uri("http://localhost:5069/");
+        }
+
+        try
+        {
+            return new Uri(baseUri, url.TrimStart('/')).ToString();
+        }
+        catch
+        {
+            return PlaceholderImage;
+        }
     }
 }
