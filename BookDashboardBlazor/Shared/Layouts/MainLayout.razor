@@ -1,24 +1,45 @@
 ﻿@inherits LayoutComponentBase
 @using BookDashboardBlazor.Services
+@using System.Security.Claims
 @inject AuthService AuthService
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
-<div class="app-container">
-    <div class="app-sidebar">
-        <NavMenu />
-    </div>
+@* 
+   ROLE-BASED LAYOUT:
+   - SuperAdmin/Admin: Full sidebar + header
+   - User: NO sidebar, only header navigation
+*@
+
+<div class="app-container @(IsAdminOrHigher ? "" : "no-sidebar")">
+    @* ═══════════════════════════════════════════════════════════════════ *@
+    @* SIDEBAR: Only rendered for Admin and SuperAdmin roles               *@
+    @* ═══════════════════════════════════════════════════════════════════ *@
+    @if (IsAdminOrHigher)
+    {
+        <div class="app-sidebar">
+            <NavMenu />
+        </div>
+    }
 
     <div class="app-main">
         <div class="app-topbar">
             <div class="topbar-content">
                 <h1 class="topbar-title">Book Dashboard</h1>
+                
+                @* ═══════════════════════════════════════════════════════════════════ *@
+                @* HEADER NAVIGATION: Always visible for authenticated users           *@
+                @* For Users, this is their ONLY navigation                            *@
+                @* ═══════════════════════════════════════════════════════════════════ *@
                 <div class="topbar-nav">
                     <AuthorizeView>
                         <Authorized>
+                            <a href="" class="nav-link">Home</a>
                             <a href="discover" class="nav-link">Discover Books</a>
                         </Authorized>
                     </AuthorizeView>
                 </div>
+                
                 <div class="topbar-actions">
                     <AuthorizeView>
                         <Authorized>
@@ -49,9 +70,48 @@
 </div>
 
 @code {
+    private ClaimsPrincipal? user;
+
+    /// <summary>
+    /// Returns true if the user has SuperAdmin role.
+    /// </summary>
+    private bool IsSuperAdmin => user?.IsInRole("SuperAdmin") == true;
+
+    /// <summary>
+    /// Returns true if the user has Admin role.
+    /// </summary>
+    private bool IsAdmin => user?.IsInRole("Admin") == true;
+
+    /// <summary>
+    /// Returns true if the user is SuperAdmin OR Admin.
+    /// Used to determine if sidebar should be shown.
+    /// </summary>
+    private bool IsAdminOrHigher => IsSuperAdmin || IsAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        user = authState.User;
+
+        // Subscribe to authentication state changes for immediate UI updates
+        AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+    }
+
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        var authState = await task;
+        user = authState.User;
+        await InvokeAsync(StateHasChanged);
+    }
+
     private async Task Logout()
     {
         await AuthService.Logout();
         NavigationManager.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }

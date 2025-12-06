@@ -1,13 +1,17 @@
 @page "/admin/roles"
+@using BookDashboardBlazor.Models
 @using System.Text.Json
-@using System.Net
-@using System.Security.Claims
 @attribute [Authorize(Roles = "SuperAdmin")]
 @inject HttpClient Http
-@inject AuthenticationStateProvider AuthStateProvider
-@inject IJSRuntime JS
 
-<h3 class="mb-4">Roles</h3>
+<style>
+    .badge-superadmin { background-color: #D32F2F !important; color: white; }
+    .badge-admin { background-color: #1976D2 !important; color: white; }
+    .badge-user { background-color: #388E3C !important; color: white; }
+    .badge-default { background-color: #757575 !important; color: white; }
+</style>
+
+<h3>Roles</h3>
 
 <div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
     <Toast Visible="showSuccessToast"
@@ -21,253 +25,251 @@
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <strong>Error:</strong> @errorMessage
-        <button type="button" class="btn-close" aria-label="Close" @onclick="() => errorMessage = null"></button>
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null" aria-label="Close"></button>
     </div>
 }
 
-<div class="d-flex justify-content-end mb-3">
-    <button class="btn btn-primary" @onclick="OpenCreateModal">
-        <span class="me-2">➕</span>Add Role
-    </button>
-</div>
+<button class="btn btn-primary mb-3" @onclick="OpenCreateModal">Add Role</button>
 
-<div class="card shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-hover mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Id</th>
-                    <th>Name</th>
-                    <th>Normalized</th>
-                    <th class="text-end">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (isLoading)
-                {
-                    <tr>
-                        <td colspan="4" class="text-center py-4">
-                            <div class="spinner-border text-primary" role="status"></div>
-                            <div class="mt-2 text-muted">Loading roles...</div>
-                        </td>
-                    </tr>
-                }
-                else if (roles.Count == 0)
-                {
-                    <tr>
-                        <td colspan="4" class="text-center text-muted py-4">
-                            No roles found. Create the first one to get started.
-                        </td>
-                    </tr>
-                }
-                else
-                {
-                    foreach (var role in roles)
-                    {
-                        <tr>
-                            <td class="align-middle">@role.Id</td>
-                            <td class="align-middle">@role.Name</td>
-                            <td class="align-middle text-uppercase text-muted">@role.NormalizedName</td>
-                            <td class="text-end">
-                                <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => OpenEditModal(role)">
-                                    Edit
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => AskDelete(role)">
-                                    Delete
-                                </button>
-                            </td>
-                        </tr>
-                    }
-                }
-            </tbody>
-        </table>
-    </div>
-</div>
+<GenericTable TItem="RoleDto" Items="roles" OnEdit="@OpenEditModal" OnDelete="@DeleteRole">
+    <TableHeader>
+        <th>Role Name</th>
+        <th>Normalized Name</th>
+    </TableHeader>
+    <RowTemplate Context="role">
+        <td>
+            <span class="badge @GetRoleBadgeClass(role.Name)">@role.Name</span>
+        </td>
+        <td class="text-uppercase text-muted">@role.NormalizedName</td>
+    </RowTemplate>
+</GenericTable>
 
-<Modal Show="showRoleModal" Title="@modalTitle" OnClose="CloseRoleModal" ToastContent="ModalToast">
-    <EditForm Model="@roleForm" OnValidSubmit="SaveRoleAsync">
+<Modal Show="showModal" Title="@modalTitle" OnClose="CloseModal" ToastContent="ModalToast">
+    <EditForm Model="@currentRole" OnValidSubmit="SaveRole">
         <DataAnnotationsValidator />
         <ValidationSummary />
 
         <div class="mb-3">
-            <label class="form-label">Name</label>
-            <InputText class="form-control" @bind-Value="roleForm.Name" />
+            <label>Name</label>
+            <InputText @bind-Value="currentRole.Name" class="form-control" />
         </div>
-
-        <div class="d-flex justify-content-end gap-2">
-            <button type="button" class="btn btn-secondary" @onclick="CloseRoleModal">Cancel</button>
-            <button type="submit" class="btn btn-primary">
-                @(string.IsNullOrEmpty(editingRoleId) ? "Create" : "Save")
-            </button>
-        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
     </EditForm>
 </Modal>
 
-<Modal Show="showDeleteModal" Title="Delete Role" OnClose="CloseDeleteModal" ToastContent="ModalToast">
-    <p class="mb-0">
-        Are you sure you want to delete the role
-        <strong>@rolePendingDelete?.Name</strong>?
-    </p>
-    <p class="text-muted small mb-4">
-        Roles that are assigned to users cannot be deleted.
-    </p>
-    <div class="d-flex justify-content-end gap-2">
+<Modal Show="showDeleteModal" Title="Confirm Delete" OnClose="CloseDeleteModal" ToastContent="ModalToast">
+    <p>Are you sure you want to delete <strong>@itemToDelete?.Name</strong>?</p>
+    <p class="text-muted small">Roles assigned to users cannot be deleted.</p>
+    <div class="mt-3">
+        <button class="btn btn-danger me-2" @onclick="ConfirmDelete">Delete</button>
         <button class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
-        <button class="btn btn-danger" @onclick="ConfirmDeleteAsync">Delete</button>
     </div>
 </Modal>
 
 @code {
-    private readonly JsonSerializerOptions jsonOptions = new() { PropertyNameCaseInsensitive = true };
     private List<RoleDto> roles = new();
-    private RoleCreateDto roleForm = new();
-    private string? editingRoleId;
-    private RoleDto? rolePendingDelete;
-    private bool isLoading = true;
-
-    private bool showRoleModal;
-    private bool showDeleteModal;
+    private RoleCreateDto currentRole = new();
+    private bool showModal = false;
+    private bool showDeleteModal = false;
+    private RoleDto? itemToDelete = null;
+    private string? editingRoleId = null;
     private string modalTitle = "Add Role";
 
-    private string? errorMessage;
     private string? modalErrorMessage;
     private string? modalErrorCode;
-    private bool showSuccessToast;
     private string? successMessage;
+    private bool showSuccessToast;
+    private string? errorMessage;
+    private readonly JsonSerializerOptions jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     protected override async Task OnInitializedAsync()
     {
-        await LogAuthStateAsync("OnInitializedAsync");
-        await LogDebugEndpointAsync();
-        await LoadRolesAsync();
+        await LoadRoles();
     }
 
-    private async Task LoadRolesAsync()
+    private async Task LoadRoles()
     {
         try
         {
-            isLoading = true;
+            errorMessage = null;
             var response = await Http.GetAsync("api/Roles");
-            var apiResponse = await DeserializeAsync<List<RoleDto>>(response);
-            roles = apiResponse?.Data ?? new List<RoleDto>();
+            var content = await response.Content.ReadAsStringAsync();
 
-            if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
+            if (response.IsSuccessStatusCode)
             {
-                errorMessage = apiResponse?.GetUserMessage($"Failed to load roles ({response.StatusCode}).");
+                var apiResponse = JsonSerializer.Deserialize<ApiResponse<List<RoleDto>>>(content, jsonOptions);
+                roles = apiResponse?.Data ?? new List<RoleDto>();
             }
             else
             {
-                errorMessage = null;
+                roles = new List<RoleDto>();
+                errorMessage = $"Error loading roles: {(int)response.StatusCode} {response.StatusCode}";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Unexpected error loading roles: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
+            roles = new List<RoleDto>();
+            errorMessage = $"Exception loading roles: {ex.Message}";
         }
     }
 
+    private string GetRoleBadgeClass(string? roleName) => roleName?.ToUpperInvariant() switch
+    {
+        "SUPERADMIN" => "badge-superadmin",
+        "ADMIN" => "badge-admin",
+        "USER" => "badge-user",
+        _ => "badge-default"
+    };
+
     private void OpenCreateModal()
     {
-        editingRoleId = null;
-        modalTitle = "Add Role";
-        roleForm = new RoleCreateDto();
-        showRoleModal = true;
         ClearModalError();
+        editingRoleId = null;
+        currentRole = new RoleCreateDto();
+        modalTitle = "Add Role";
+        showModal = true;
+        StateHasChanged();
     }
 
     private void OpenEditModal(RoleDto role)
     {
+        ClearModalError();
         editingRoleId = role.Id;
-        modalTitle = $"Edit Role ({role.Name})";
-        roleForm = new RoleCreateDto { Name = role.Name };
-        showRoleModal = true;
-        ClearModalError();
+        currentRole = new RoleCreateDto { Name = role.Name };
+        modalTitle = "Edit Role";
+        showModal = true;
+        StateHasChanged();
     }
 
-    private void CloseRoleModal()
+    private void CloseModal()
     {
-        showRoleModal = false;
         ClearModalError();
+        showModal = false;
+        StateHasChanged();
     }
 
-    private void AskDelete(RoleDto role)
+    private async Task SaveRole()
     {
-        rolePendingDelete = role;
-        showDeleteModal = true;
         ClearModalError();
-    }
+        var isCreate = string.IsNullOrEmpty(editingRoleId);
 
-    private void CloseDeleteModal()
-    {
-        rolePendingDelete = null;
-        showDeleteModal = false;
-        ClearModalError();
-    }
-
-    private async Task SaveRoleAsync()
-    {
         try
         {
             HttpResponseMessage response;
-            if (string.IsNullOrEmpty(editingRoleId))
+            if (isCreate)
             {
-                response = await Http.PostAsJsonAsync("api/Roles", roleForm);
+                response = await Http.PostAsJsonAsync("api/Roles", currentRole);
             }
             else
             {
-                response = await Http.PutAsJsonAsync($"api/Roles/{editingRoleId}", new RoleUpdateDto { Name = roleForm.Name });
+                response = await Http.PutAsJsonAsync($"api/Roles/{editingRoleId}", new RoleUpdateDto { Name = currentRole.Name });
             }
 
-            var apiResponse = await DeserializeAsync<RoleDto>(response);
-            if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
+            var raw = await response.Content.ReadAsStringAsync();
+            ApiResponse<RoleDto>? apiResponse = null;
+            if (!string.IsNullOrWhiteSpace(raw))
             {
-                ShowModalError(apiResponse?.GetUserMessage($"Failed to save role ({response.StatusCode})."),
+                try
+                {
+                    apiResponse = JsonSerializer.Deserialize<ApiResponse<RoleDto>>(raw, jsonOptions);
+                }
+                catch (JsonException ex)
+                {
+                    Console.WriteLine($"[Roles] JSON parse warning on save: {ex.Message}");
+                }
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                ShowModalError(apiResponse?.GetUserMessage($"Failed to save role (status {(int)response.StatusCode})."),
                     apiResponse?.ErrorCode);
                 return;
             }
 
-            showRoleModal = false;
-            await LoadRolesAsync();
-            ShowSuccessToast(string.IsNullOrEmpty(editingRoleId) ? "Role created successfully" : "Role updated successfully");
+            if (apiResponse is not null && !apiResponse.Success &&
+                (!string.IsNullOrWhiteSpace(apiResponse.Message) || !string.IsNullOrWhiteSpace(apiResponse.ErrorCode)))
+            {
+                ShowModalError(apiResponse.GetUserMessage($"Failed to save role (status {(int)response.StatusCode})."),
+                    apiResponse.ErrorCode);
+                return;
+            }
+
+            showModal = false;
+            await LoadRoles();
+            ShowSuccessToast(isCreate ? "Role created successfully" : "Role updated successfully");
         }
         catch (Exception ex)
         {
-            ShowModalError($"Unexpected error saving role: {ex.Message}", "EXCEPTION");
+            ShowModalError($"Error saving role: {ex.Message}", "EXCEPTION");
         }
     }
 
-    private async Task ConfirmDeleteAsync()
+    private Task DeleteRole(RoleDto role)
     {
-        if (rolePendingDelete == null)
-        {
-            return;
-        }
+        ClearModalError();
+        itemToDelete = role;
+        showDeleteModal = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (itemToDelete == null) return;
 
         try
         {
-            var response = await Http.DeleteAsync($"api/Roles/{rolePendingDelete.Id}");
-            var apiResponse = await DeserializeAsync<object>(response);
-            if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
+            var response = await Http.DeleteAsync($"api/Roles/{itemToDelete.Id}");
+            var raw = await response.Content.ReadAsStringAsync();
+            ApiResponse<object>? apiResponse = null;
+            if (!string.IsNullOrWhiteSpace(raw))
             {
-                ShowModalError(apiResponse?.GetUserMessage($"Failed to delete role ({response.StatusCode})."),
+                try
+                {
+                    apiResponse = JsonSerializer.Deserialize<ApiResponse<object>>(raw, jsonOptions);
+                }
+                catch (JsonException ex)
+                {
+                    Console.WriteLine($"[Roles] JSON parse warning on delete: {ex.Message}");
+                }
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                ShowModalError(apiResponse?.GetUserMessage($"Failed to delete role (status {(int)response.StatusCode})."),
                     apiResponse?.ErrorCode);
                 return;
             }
 
+            if (apiResponse is not null && !apiResponse.Success)
+            {
+                ShowModalError(apiResponse.GetUserMessage($"Failed to delete role (status {(int)response.StatusCode})."),
+                    apiResponse.ErrorCode);
+                return;
+            }
+
+            itemToDelete = null;
             showDeleteModal = false;
-            rolePendingDelete = null;
-            await LoadRolesAsync();
+            StateHasChanged();
+            await LoadRoles();
             ShowSuccessToast("Role deleted successfully");
         }
         catch (Exception ex)
         {
-            ShowModalError($"Unexpected error deleting role: {ex.Message}", "EXCEPTION");
+            ShowModalError($"Error deleting role: {ex.Message}", "EXCEPTION");
         }
+    }
+
+    private Task CloseDeleteModal()
+    {
+        ClearModalError();
+        showDeleteModal = false;
+        itemToDelete = null;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private RenderFragment ModalToast => builder =>
@@ -282,14 +284,15 @@
         builder.AddAttribute(2, "Type", ToastType.Error);
         builder.AddAttribute(3, "Message", modalErrorMessage);
         builder.AddAttribute(4, "Code", modalErrorCode);
-        builder.AddAttribute(5, "OnClose", EventCallback.Factory.Create(this, ClearModalError));
-        builder.AddAttribute(6, "CssClass", "w-100 mb-0");
+        builder.AddAttribute(5, "Duration", 5000);
+        builder.AddAttribute(6, "OnClose", EventCallback.Factory.Create(this, ClearModalError));
+        builder.AddAttribute(7, "CssClass", "w-100 mb-0");
         builder.CloseComponent();
     };
 
-    private void ShowModalError(string? message, string? code = null)
+    private void ShowModalError(string message, string? code = null)
     {
-        modalErrorMessage = message ?? "An unknown error occurred.";
+        modalErrorMessage = message;
         modalErrorCode = code;
         StateHasChanged();
     }
@@ -312,105 +315,5 @@
         showSuccessToast = false;
         successMessage = null;
         StateHasChanged();
-    }
-
-    private async Task<ApiResponse<T>?> DeserializeAsync<T>(HttpResponseMessage response)
-    {
-        try
-        {
-            var content = await response.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(content))
-            {
-                return null;
-            }
-
-            return JsonSerializer.Deserialize<ApiResponse<T>>(content, jsonOptions);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
-    private async Task LogAuthStateAsync(string context)
-    {
-        try
-        {
-            var state = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = state.User;
-            var roles = user.Claims
-                .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
-                .Select(c => c.Value)
-                .ToList();
-
-            await JS.InvokeVoidAsync("console.log", "[Roles] AuthState", new
-            {
-                Context = context,
-                IsAuthenticated = user.Identity?.IsAuthenticated,
-                Name = user.Identity?.Name,
-                Roles = roles
-            });
-        }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("console.error", "[Roles] AuthState logging failed", ex.Message);
-        }
-    }
-
-    private async Task LogDebugEndpointAsync()
-    {
-        try
-        {
-            var response = await Http.GetAsync("api/debug/me");
-            var body = await response.Content.ReadAsStringAsync();
-            await JS.InvokeVoidAsync("console.log", "[Roles] /api/debug/me", new
-            {
-                Status = (int)response.StatusCode,
-                Body = body
-            });
-        }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("console.error", "[Roles] Debug endpoint failed", ex.Message);
-        }
-    }
-
-    private async Task LogHttpFailureAsync(HttpResponseMessage response, string context, string? apiMessage)
-    {
-        try
-        {
-            var content = await response.Content.ReadAsStringAsync();
-            var state = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = state.User;
-            var roles = user.Claims
-                .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
-                .Select(c => c.Value)
-                .ToList();
-
-            await JS.InvokeVoidAsync("console.error", "[Roles] API failure", new
-            {
-                Context = context,
-                Status = (int)response.StatusCode,
-                Reason = response.ReasonPhrase,
-                Body = content,
-                ApiMessage = apiMessage,
-                User = user.Identity?.Name,
-                Roles = roles
-            });
-        }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("console.error", "[Roles] API failure logging failed", ex.Message);
-        }
-    }
-
-    private async Task LogExceptionAsync(string context, Exception exception)
-    {
-        await JS.InvokeVoidAsync("console.error", "[Roles] Exception", new
-        {
-            Context = context,
-            exception.Message,
-            exception.StackTrace
-        });
     }
 }

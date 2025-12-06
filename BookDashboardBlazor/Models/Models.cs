@@ -254,34 +254,15 @@ public class RoleUpdateDto
     public string Name { get; set; } = string.Empty;
 }
 
-public class RoleClaimDto
-{
-    [JsonPropertyName("id")]
-    public int Id { get; set; }
-
-    [JsonPropertyName("roleId")]
-    public string RoleId { get; set; } = string.Empty;
-
-    [JsonPropertyName("claimType")]
-    public string ClaimType { get; set; } = string.Empty;
-
-    [JsonPropertyName("claimValue")]
-    public string ClaimValue { get; set; } = string.Empty;
-}
-
-public class RoleClaimCreateDto
+public class SetUserRoleDto
 {
     [Required]
-    [JsonPropertyName("roleId")]
-    public string RoleId { get; set; } = string.Empty;
+    [JsonPropertyName("userId")]
+    public string UserId { get; set; } = string.Empty;
 
     [Required]
-    [JsonPropertyName("claimType")]
-    public string ClaimType { get; set; } = string.Empty;
-
-    [Required]
-    [JsonPropertyName("claimValue")]
-    public string ClaimValue { get; set; } = string.Empty;
+    [JsonPropertyName("roleName")]
+    public string RoleName { get; set; } = string.Empty;
 }
 
 public class UserWithRolesDto

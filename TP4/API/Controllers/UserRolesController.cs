@@ -218,6 +218,80 @@ namespace API.Controllers
             });
         }
 
+        [HttpPost("set-role")]
+        public async Task<IActionResult> SetUserRoleAsync([FromBody] SetUserRoleDto dto)
+        {
+            LogCurrentUser(nameof(SetUserRoleAsync));
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Invalid payload",
+                    ErrorCode = "VALIDATION_ERROR"
+                });
+            }
+
+            var user = await _userManager.FindByIdAsync(dto.UserId);
+            if (user == null)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "User not found",
+                    ErrorCode = "USER_NOT_FOUND"
+                });
+            }
+
+            var role = await _roleManager.FindByNameAsync(dto.RoleName);
+            if (role == null || string.IsNullOrWhiteSpace(role.Name))
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Role not found",
+                    ErrorCode = "ROLE_NOT_FOUND"
+                });
+            }
+
+            // Remove all existing roles
+            var currentRoles = await _userManager.GetRolesAsync(user);
+            if (currentRoles.Any())
+            {
+                var removeResult = await _userManager.RemoveFromRolesAsync(user, currentRoles);
+                if (!removeResult.Succeeded)
+                {
+                    return BadRequest(new ApiResponse<IEnumerable<string>>
+                    {
+                        Success = false,
+                        Message = "Failed to remove existing roles",
+                        ErrorCode = "IDENTITY_ERROR",
+                        Data = removeResult.Errors.Select(e => e.Description)
+                    });
+                }
+            }
+
+            // Assign the new single role
+            var addResult = await _userManager.AddToRoleAsync(user, role.Name);
+            if (!addResult.Succeeded)
+            {
+                return BadRequest(new ApiResponse<IEnumerable<string>>
+                {
+                    Success = false,
+                    Message = "Failed to assign role",
+                    ErrorCode = "IDENTITY_ERROR",
+                    Data = addResult.Errors.Select(e => e.Description)
+                });
+            }
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = $"Role '{role.Name}' assigned successfully"
+            });
+        }
+
         private async Task<IdentityRole?> FindRoleAsync(string roleIdOrName)
         {
             if (string.IsNullOrWhiteSpace(roleIdOrName))

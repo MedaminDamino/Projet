@@ -4,6 +4,14 @@
 @attribute [Authorize(Roles = "SuperAdmin")]
 @inject HttpClient Http
 
+<style>
+    .badge-superadmin { background-color: #D32F2F !important; color: white; }
+    .badge-admin { background-color: #1976D2 !important; color: white; }
+    .badge-user { background-color: #388E3C !important; color: white; }
+    .badge-norole { background-color: #673AB7 !important; color: white; }
+
+</style>
+
 <h3 class="mb-4">User Roles</h3>
 
 <div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
@@ -29,7 +37,7 @@
                 <tr>
                     <th>User Name</th>
                     <th>Email</th>
-                    <th>Roles</th>
+                    <th>Role</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -61,13 +69,13 @@
                             <td>
                                 @if (user.Roles.Count == 0)
                                 {
-                                    <span class="badge bg-secondary">No roles</span>
+                                <span class="badge badge-norole">No role</span>
                                 }
                                 else
                                 {
-                                    foreach (var role in user.Roles)
+                                    @foreach (var role in user.Roles)
                                     {
-                                        <span class="badge bg-primary me-1 mb-1">@role</span>
+                                        <span class="badge @GetRoleBadgeClass(role) me-1 mb-1">@role</span>
                                     }
                                 }
                             </td>
@@ -75,7 +83,7 @@
                                 <button class="btn btn-sm btn-outline-primary"
                                         disabled="@(roles.Count == 0)"
                                         @onclick="() => OpenManageRolesModal(user)">
-                                    Manage Roles
+                                    Change Role
                                 </button>
                             </td>
                         </tr>
@@ -89,7 +97,7 @@
 <Modal Show="showManageModal" Title="@modalTitle" OnClose="CloseManageRolesModal" ToastContent="ModalToast">
     @if (selectedUser is null)
     {
-        <p class="text-muted mb-0">Select a user to edit roles.</p>
+        <p class="text-muted mb-0">Select a user to edit role.</p>
     }
     else if (roles.Count == 0)
     {
@@ -103,29 +111,33 @@
         </div>
 
         <div class="mb-3">
-            <label class="form-label d-block">Roles</label>
+            <label class="form-label d-block">Select Role</label>
             @foreach (var role in roles)
             {
-                var checkboxId = $"role_{role.Id}";
+                var radioId = $"role_{role.Id}";
                 <div class="form-check">
                     <input class="form-check-input"
-                           type="checkbox"
-                           id="@checkboxId"
-                           checked="@IsRoleSelected(role.Name)"
-                           @onchange="args => ToggleRole(role.Name, args)" />
-                    <label class="form-check-label" for="@checkboxId">@role.Name</label>
+                           type="radio"
+                           name="userRole"
+                           id="@radioId"
+                           value="@role.Name"
+                           checked="@(selectedRole == role.Name)"
+                           @onchange="() => selectedRole = role.Name" />
+                    <label class="form-check-label" for="@radioId">
+                        <span class="badge @GetRoleBadgeClass(role.Name)">@role.Name</span>
+                    </label>
                 </div>
             }
         </div>
 
         <div class="d-flex justify-content-end gap-2">
             <button class="btn btn-secondary" @onclick="CloseManageRolesModal">Cancel</button>
-            <button class="btn btn-primary" @onclick="SaveRolesAsync" disabled="@isSavingRoles">
+            <button class="btn btn-primary" @onclick="SaveRoleAsync" disabled="@(isSavingRoles || string.IsNullOrEmpty(selectedRole))">
                 @if (isSavingRoles)
                 {
                     <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                 }
-                Apply Changes
+                Apply Role
             </button>
         </div>
     }
@@ -145,10 +157,10 @@
     private string? modalErrorMessage;
     private string? modalErrorCode;
     private string? successMessage;
-    private string modalTitle = "Manage Roles";
+    private string modalTitle = "Change Role";
 
     private UserWithRolesDto? selectedUser;
-    private HashSet<string> selectedRoles = new(StringComparer.OrdinalIgnoreCase);
+    private string? selectedRole;
 
     protected override async Task OnInitializedAsync()
     {
@@ -214,8 +226,8 @@
     private void OpenManageRolesModal(UserWithRolesDto user)
     {
         selectedUser = user;
-        modalTitle = $"Manage Roles - {user.UserName}";
-        selectedRoles = new HashSet<string>(user.Roles ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+        modalTitle = $"Change Role - {user.UserName}";
+        selectedRole = user.Roles?.FirstOrDefault();
         showManageModal = true;
         ClearModalError();
     }
@@ -224,46 +236,28 @@
     {
         showManageModal = false;
         selectedUser = null;
-        selectedRoles.Clear();
+        selectedRole = null;
         ClearModalError();
     }
 
-    private bool IsRoleSelected(string? roleName) =>
-        !string.IsNullOrWhiteSpace(roleName) && selectedRoles.Contains(roleName);
-
-    private void ToggleRole(string? roleName, ChangeEventArgs args)
+    private string GetRoleBadgeClass(string? role) => role?.ToUpperInvariant() switch
     {
-        if (string.IsNullOrWhiteSpace(roleName))
+        "SUPERADMIN" => "badge badge-superadmin",
+        "ADMIN" => "badge badge-admin",
+        "USER" => "badge badge-user",
+        _ => "badge badge-norole"
+    };
+
+    private async Task SaveRoleAsync()
+    {
+        if (selectedUser == null || string.IsNullOrEmpty(selectedRole))
         {
             return;
         }
 
-        var isChecked = args?.Value is bool boolValue
-            ? boolValue
-            : bool.TryParse(args?.Value?.ToString(), out var parsed) && parsed;
-
-        if (isChecked)
-        {
-            selectedRoles.Add(roleName);
-        }
-        else
-        {
-            selectedRoles.Remove(roleName);
-        }
-    }
-
-    private async Task SaveRolesAsync()
-    {
-        if (selectedUser == null)
-        {
-            return;
-        }
-
-        var currentRoles = selectedUser.Roles ?? new List<string>();
-        var toAssign = selectedRoles.Except(currentRoles, StringComparer.OrdinalIgnoreCase).ToList();
-        var toRemove = currentRoles.Except(selectedRoles, StringComparer.OrdinalIgnoreCase).ToList();
-
-        if (toAssign.Count == 0 && toRemove.Count == 0)
+        // Check if the role is already the same
+        var currentRole = selectedUser.Roles?.FirstOrDefault();
+        if (currentRole == selectedRole)
         {
             showManageModal = false;
             ShowSuccessToast("No role changes to apply.");
@@ -273,49 +267,30 @@
         try
         {
             isSavingRoles = true;
-            foreach (var roleName in toAssign)
+
+            var payload = new SetUserRoleDto
             {
-                var payload = new AssignRoleDto
-                {
-                    UserId = selectedUser.UserId,
-                    RoleIdOrName = roleName
-                };
+                UserId = selectedUser.UserId,
+                RoleName = selectedRole
+            };
 
-                var response = await Http.PostAsJsonAsync("api/UserRoles/assign", payload);
-                var apiResponse = await DeserializeAsync<object>(response);
-                if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
-                {
-                    ShowModalError(apiResponse?.GetUserMessage($"Failed to assign role {roleName} ({response.StatusCode})."),
-                        apiResponse?.ErrorCode);
-                    return;
-                }
-            }
+            var response = await Http.PostAsJsonAsync("api/UserRoles/set-role", payload);
+            var apiResponse = await DeserializeAsync<object>(response);
 
-            foreach (var roleName in toRemove)
+            if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
             {
-                var payload = new RemoveRoleDto
-                {
-                    UserId = selectedUser.UserId,
-                    RoleIdOrName = roleName
-                };
-
-                var response = await Http.PostAsJsonAsync("api/UserRoles/remove", payload);
-                var apiResponse = await DeserializeAsync<object>(response);
-                if (!response.IsSuccessStatusCode || apiResponse is { Success: false })
-                {
-                    ShowModalError(apiResponse?.GetUserMessage($"Failed to remove role {roleName} ({response.StatusCode})."),
-                        apiResponse?.ErrorCode);
-                    return;
-                }
+                ShowModalError(apiResponse?.GetUserMessage($"Failed to set role ({response.StatusCode})."),
+                    apiResponse?.ErrorCode);
+                return;
             }
 
             showManageModal = false;
             await LoadUsersAsync();
-            ShowSuccessToast("Roles updated successfully");
+            ShowSuccessToast($"Role changed to '{selectedRole}' successfully");
         }
         catch (Exception ex)
         {
-            ShowModalError($"Unexpected error updating roles: {ex.Message}", "EXCEPTION");
+            ShowModalError($"Unexpected error updating role: {ex.Message}", "EXCEPTION");
         }
         finally
         {

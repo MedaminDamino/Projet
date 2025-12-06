@@ -41,6 +41,39 @@ namespace API.Services
                     _logger.LogError("Failed to assign user {UserEmail} to role {Role}: {Errors}", user.Email, superAdminRoleName, string.Join(", ", result.Errors.Select(e => e.Description)));
                 }
             }
+
+            // Also ensure existing user "Sa3id" is added to SuperAdmin role properly via Identity
+            await EnsureUserInRoleAsync("Sa3id", superAdminRoleName);
+        }
+
+        private async Task EnsureUserInRoleAsync(string username, string roleName)
+        {
+            var user = await _userManager.FindByNameAsync(username);
+            if (user == null)
+            {
+                _logger.LogWarning("User {Username} not found, skipping role assignment", username);
+                return;
+            }
+
+            _logger.LogInformation("Found user {Username} (Id: {UserId}), checking role {Role}", username, user.Id, roleName);
+
+            if (await _userManager.IsInRoleAsync(user, roleName))
+            {
+                _logger.LogInformation("User {Username} is already in role {Role}", username, roleName);
+                return;
+            }
+
+            _logger.LogInformation("Adding user {Username} to role {Role}...", username, roleName);
+            var result = await _userManager.AddToRoleAsync(user, roleName);
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("Successfully added user {Username} to role {Role}", username, roleName);
+            }
+            else
+            {
+                _logger.LogError("Failed to add user {Username} to role {Role}: {Errors}", 
+                    username, roleName, string.Join(", ", result.Errors.Select(e => e.Description)));
+            }
         }
 
         private async Task<IdentityRole?> EnsureRoleAsync(string roleName)

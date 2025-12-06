@@ -5,7 +5,7 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
   "mainAssemblyName": "BookDashboardBlazor",
   "applicationEnvironment": "Development",
   "resources": {
-    "hash": "sha256-D1Vk4xuga1CPxnKdVFbf76/575t4MyqF+Tdj2J/bdEI=",
+    "hash": "sha256-mzSuqCnfY1AAAevjOOaz958VzPx6mQsTc8fuAWNlU2g=",
     "jsModuleNative": [
       {
         "name": "dotnet.native.xanz2e7ksm.js"
@@ -193,6 +193,26 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
         "integrity": "sha256-qT2aydmmggG8gBaHWUzvrKumK7J9YbGwyd9zdEVWZcA="
       },
       {
+        "virtualPath": "Microsoft.IdentityModel.Abstractions.wasm",
+        "name": "Microsoft.IdentityModel.Abstractions.2fq93bre8p.wasm",
+        "integrity": "sha256-AvPsV+WzoT7hyK7mrlKPY7nLKNjR81haQYNEo+zOUyI="
+      },
+      {
+        "virtualPath": "Microsoft.IdentityModel.JsonWebTokens.wasm",
+        "name": "Microsoft.IdentityModel.JsonWebTokens.rp4ufe1kuz.wasm",
+        "integrity": "sha256-X+pgQ6ZWgHxvnUNYXj2LWknoVZZMUexGyDSx0w7yvWM="
+      },
+      {
+        "virtualPath": "Microsoft.IdentityModel.Logging.wasm",
+        "name": "Microsoft.IdentityModel.Logging.t1co0z6n24.wasm",
+        "integrity": "sha256-/yDG7wDb9prwYjLlJd4F5dwvr9Bis7MTIiXE7g0LoL0="
+      },
+      {
+        "virtualPath": "Microsoft.IdentityModel.Tokens.wasm",
+        "name": "Microsoft.IdentityModel.Tokens.m8tw6bmrjd.wasm",
+        "integrity": "sha256-Bk65uU6Yw19N4JicN6e9zCo5rEhhD6snwbLmymXhIQw="
+      },
+      {
         "virtualPath": "Microsoft.JSInterop.wasm",
         "name": "Microsoft.JSInterop.kksrzpvoig.wasm",
         "integrity": "sha256-ZMDJB7HAUuoLzQZRYnLkvVVaR0Aqx1O070OL2H0APzs="
@@ -201,6 +221,11 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
         "virtualPath": "Microsoft.JSInterop.WebAssembly.wasm",
         "name": "Microsoft.JSInterop.WebAssembly.9udcqny0aq.wasm",
         "integrity": "sha256-EQfaQose2do/RGDJFP6YWTTeOWA2gufnJurZZZh2XLU="
+      },
+      {
+        "virtualPath": "System.IdentityModel.Tokens.Jwt.wasm",
+        "name": "System.IdentityModel.Tokens.Jwt.1jt3yfuj5o.wasm",
+        "integrity": "sha256-w6ku10GxpsGRTAbeO6InMQkto8w7PGlne8wMSvaXHFQ="
       },
       {
         "virtualPath": "Microsoft.CSharp.wasm",
@@ -1054,15 +1079,15 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
       },
       {
         "virtualPath": "BookDashboardBlazor.wasm",
-        "name": "BookDashboardBlazor.gbjvhhjkpu.wasm",
-        "integrity": "sha256-dMckhUUXWkzdZFMfoazRYELSxRS3Dml2ci04kHj5vQQ="
+        "name": "BookDashboardBlazor.b9dq9s3kmb.wasm",
+        "integrity": "sha256-n44fOWyCxiAq3Q5kP5DuNvdn8YNQUnKvMXq2TctGdmU="
       }
     ],
     "pdb": [
       {
         "virtualPath": "BookDashboardBlazor.pdb",
-        "name": "BookDashboardBlazor.j8yi3cc1wa.pdb",
-        "integrity": "sha256-Le+qEJhN/BOe8EGztcasmXBA1g/9kkkD2Koog0rrTm4="
+        "name": "BookDashboardBlazor.6hq9si9bi9.pdb",
+        "integrity": "sha256-SmIuja7C3qV0+iwF69CP6u1zM2KDhtXQdj3BIiEP2TA="
       }
     ],
     "libraryInitializers": [

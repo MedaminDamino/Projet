@@ -23,26 +23,13 @@ namespace API.DTO
         public string Name { get; set; } = string.Empty;
     }
 
-    public class RoleClaimDto
-    {
-        public int Id { get; set; }
-        public string RoleId { get; set; } = string.Empty;
-        public string ClaimType { get; set; } = string.Empty;
-        public string ClaimValue { get; set; } = string.Empty;
-    }
-
-    public class RoleClaimCreateDto
+    public class SetUserRoleDto
     {
         [Required]
-        public string RoleId { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
 
         [Required]
-        [StringLength(256)]
-        public string ClaimType { get; set; } = string.Empty;
-
-        [Required]
-        [StringLength(1024)]
-        public string ClaimValue { get; set; } = string.Empty;
+        public string RoleName { get; set; } = string.Empty;
     }
 
     public class UserWithRolesDto

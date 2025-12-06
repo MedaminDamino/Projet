@@ -1,0 +1,129 @@
+@page "/unauthorized"
+
+<PageTitle>Access Denied - BookDashboard</PageTitle>
+
+<div class="unauthorized-container">
+    <div class="unauthorized-card">
+        <div class="unauthorized-icon">🚫</div>
+        <h1 class="unauthorized-title">Access Denied</h1>
+        <p class="unauthorized-message">
+            You don't have permission to access this page.
+        </p>
+        <p class="unauthorized-hint">
+            This page requires elevated privileges. If you believe you should have access,
+            please contact your system administrator.
+        </p>
+        
+        <div class="unauthorized-actions">
+            <a href="/" class="btn btn-primary">
+                <span>🏠</span> Go to Home
+            </a>
+            <a href="discover" class="btn btn-outline-primary">
+                <span>🔍</span> Discover Books
+            </a>
+        </div>
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="unauthorized-user-info">
+                    <small class="text-muted">
+                        Logged in as: <strong>@context.User.Identity?.Name</strong>
+                    </small>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <div class="unauthorized-login-prompt">
+                    <p class="text-muted mb-2">Perhaps you need to log in?</p>
+                    <a href="login" class="btn btn-success">
+                        <span>🔐</span> Login
+                    </a>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+</div>
+
+<style>
+    .unauthorized-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 60vh;
+        padding: 2rem;
+    }
+
+    .unauthorized-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border-radius: 1rem;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        padding: 3rem;
+        text-align: center;
+        max-width: 500px;
+        width: 100%;
+    }
+
+    .unauthorized-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        animation: shake 0.5s ease-in-out;
+    }
+
+    @@keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+
+    .unauthorized-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #dc3545;
+        margin-bottom: 1rem;
+    }
+
+    .unauthorized-message {
+        font-size: 1.1rem;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+
+    .unauthorized-hint {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 2rem;
+    }
+
+    .unauthorized-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 1.5rem;
+    }
+
+    .unauthorized-actions .btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        border-radius: 0.5rem;
+        transition: all 0.2s ease;
+    }
+
+    .unauthorized-actions .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .unauthorized-user-info,
+    .unauthorized-login-prompt {
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e9ecef;
+    }
+</style>
+
+@code {
+    // This page serves as a user-friendly landing for unauthorized access attempts
+}

@@ -3,14 +3,30 @@
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
                 <NotAuthorized>
-                    @if (context.User.Identity?.IsAuthenticated != true)
-                    {
-                        <p role="alert">You are not authorized to access this resource. <a href="login">Login</a></p>
-                    }
-                    else
-                    {
-                        <p role="alert">You are not authorized to access this resource.</p>
-                    }
+                    <div class="unauthorized-inline">
+                        <div class="card shadow-sm border-0 mx-auto" style="max-width: 500px; margin-top: 3rem;">
+                            <div class="card-body text-center p-4">
+                                <div style="font-size: 3rem; margin-bottom: 1rem;">🚫</div>
+                                <h4 class="text-danger mb-3">Access Denied</h4>
+                                @if (context.User.Identity?.IsAuthenticated != true)
+                                {
+                                    <p class="text-muted mb-3">Please log in to access this page.</p>
+                                    <a href="login" class="btn btn-primary">🔐 Login</a>
+                                }
+                                else
+                                {
+                                    <p class="text-muted mb-3">You don't have permission to view this page.</p>
+                                    <div class="d-flex gap-2 justify-content-center flex-wrap">
+                                        <a href="/" class="btn btn-primary">🏠 Go Home</a>
+                                        <a href="discover" class="btn btn-outline-primary">🔍 Discover</a>
+                                    </div>
+                                    <p class="text-muted small mt-3 mb-0">
+                                        Logged in as: <strong>@context.User.Identity?.Name</strong>
+                                    </p>
+                                }
+                            </div>
+                        </div>
+                    </div>
                 </NotAuthorized>
             </AuthorizeRouteView>
             <FocusOnNavigate RouteData="@routeData" Selector="h1" />

@@ -121,6 +121,9 @@ namespace API.Controllers
                 });
             }
 
+            // Debug: Log user info
+            Console.WriteLine($"=== [AccountController] Login for user: {user.UserName} (ID: {user.Id}) ===");
+
             List<Claim> claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.UserName ?? loginDTO.Username),
@@ -128,11 +131,25 @@ namespace API.Controllers
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
+            // Get roles and add to claims
             var roles = await userManager.GetRolesAsync(user);
+            Console.WriteLine($"[AccountController] GetRolesAsync returned {roles.Count} roles:");
             foreach (var role in roles)
             {
+                Console.WriteLine($"  - Role: '{role}'");
                 claims.Add(new Claim(ClaimTypes.Role, role));
                 claims.Add(new Claim("role", role));
+            }
+            
+            if (roles.Count == 0)
+            {
+                Console.WriteLine("[AccountController] WARNING: No roles found for this user!");
+            }
+
+            Console.WriteLine($"[AccountController] Total claims being added to token: {claims.Count}");
+            foreach (var claim in claims)
+            {
+                Console.WriteLine($"  - Claim: Type='{claim.Type}', Value='{claim.Value}'");
             }
 
             var key = new SymmetricSecurityKey(
@@ -154,7 +171,10 @@ namespace API.Controllers
                 token = new JwtSecurityTokenHandler().WriteToken(token),
                 expiration = token.ValidTo,
                 username = user.UserName ?? loginDTO.Username,
+                roles = roles.ToList() // Include roles in response for debugging
             };
+
+            Console.WriteLine($"[AccountController] Token generated. Returning with {roles.Count} roles.");
 
             return Ok(_token);
         }

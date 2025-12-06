@@ -284,3 +284,64 @@ article.content {
     padding-left: 0;
     padding-right: 0;
 }
+
+/* ============================================
+   NAVIGATION SECTION DIVIDERS - Role-Based Menu Groups
+   ============================================ */
+
+.nav-section-divider {
+    height: 1px;
+    background-color: var(--color-border-light, #f3f4f6);
+    margin: 0.75rem 0;
+}
+
+.nav-section-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-tertiary, #9ca3af);
+    padding: 0.5rem 0.875rem;
+    margin-bottom: 0.25rem;
+}
+
+/* ============================================
+   NO SIDEBAR LAYOUT - For User role
+   When sidebar is hidden, content expands full width
+   ============================================ */
+
+.app-container.no-sidebar {
+    display: block;
+}
+
+.app-container.no-sidebar .app-main {
+    margin-left: 0;
+    width: 100%;
+}
+
+.app-container.no-sidebar .app-content {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Header navigation links styling */
+.topbar-nav {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.topbar-nav .nav-link {
+    color: var(--color-text-secondary, #6b7280);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9375rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    transition: all 150ms ease;
+}
+
+.topbar-nav .nav-link:hover {
+    color: var(--color-primary, #6366f1);
+    background-color: var(--color-primary-light, #eef2ff);
+}

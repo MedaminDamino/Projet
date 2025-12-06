@@ -1,3 +1,11 @@
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@* 
+   SIDEBAR NAVIGATION - Admin/SuperAdmin Only
+   (Home and Discover are in the header, not here)
+*@
+
 <div class="sidebar-header">
     <a href="" class="sidebar-brand">
         <span class="brand-icon">📚</span>
@@ -6,71 +14,64 @@
 </div>
 
 <nav class="sidebar-nav">
-    <AuthorizeView>
-        <Authorized>
-            <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
-                <span class="nav-icon">🏠</span>
-                <span class="nav-text">Home</span>
-            </NavLink>
+    @* ═══════════════════════════════════════════════════════════════════ *@
+    @* SECTION: Management Pages (Admin + SuperAdmin)                       *@
+    @* ═══════════════════════════════════════════════════════════════════ *@
+    <div class="nav-section-label">Management</div>
 
-            <NavLink class="nav-item" href="books">
-                <span class="nav-icon">📖</span>
-                <span class="nav-text">Books</span>
-            </NavLink>
+    <NavLink class="nav-item" href="books">
+        <span class="nav-icon">📖</span>
+        <span class="nav-text">Books</span>
+    </NavLink>
 
-            <NavLink class="nav-item" href="authors">
-                <span class="nav-icon">✍️</span>
-                <span class="nav-text">Authors</span>
-            </NavLink>
+    <NavLink class="nav-item" href="authors">
+        <span class="nav-icon">✍️</span>
+        <span class="nav-text">Authors</span>
+    </NavLink>
 
-            <NavLink class="nav-item" href="genres">
-                <span class="nav-icon">🏷️</span>
-                <span class="nav-text">Genres</span>
-            </NavLink>
+    <NavLink class="nav-item" href="genres">
+        <span class="nav-icon">🏷️</span>
+        <span class="nav-text">Genres</span>
+    </NavLink>
 
-            <NavLink class="nav-item" href="reviews">
-                <span class="nav-icon">⭐</span>
-                <span class="nav-text">Reviews</span>
-            </NavLink>
+    <NavLink class="nav-item" href="reviews">
+        <span class="nav-icon">⭐</span>
+        <span class="nav-text">Reviews</span>
+    </NavLink>
 
-            <NavLink class="nav-item" href="comments">
-                <span class="nav-icon">💬</span>
-                <span class="nav-text">Comments</span>
-            </NavLink>
+    <NavLink class="nav-item" href="comments">
+        <span class="nav-icon">💬</span>
+        <span class="nav-text">Comments</span>
+    </NavLink>
 
-            <NavLink class="nav-item" href="goals">
-                <span class="nav-icon">🎯</span>
-                <span class="nav-text">Goals</span>
-            </NavLink>
+    <NavLink class="nav-item" href="goals">
+        <span class="nav-icon">🎯</span>
+        <span class="nav-text">Goals</span>
+    </NavLink>
 
-            <NavLink class="nav-item" href="readinglist">
-                <span class="nav-icon">📋</span>
-                <span class="nav-text">Reading List</span>
-            </NavLink>
-            <NavLink class="nav-item" href="admin/roles">
-                <span class="nav-icon">🛡️</span>
-                <span class="nav-text">Roles</span>
-            </NavLink>
+    <NavLink class="nav-item" href="readinglist">
+        <span class="nav-icon">📋</span>
+        <span class="nav-text">Reading List</span>
+    </NavLink>
 
-            <NavLink class="nav-item" href="admin/roleclaims">
-                <span class="nav-icon">📑</span>
-                <span class="nav-text">Role Claims</span>
-            </NavLink>
+    @* ═══════════════════════════════════════════════════════════════════ *@
+    @* SECTION: Administration (SuperAdmin Only)                            *@
+    @* ═══════════════════════════════════════════════════════════════════ *@
+    @if (IsSuperAdmin)
+    {
+        <div class="nav-section-divider"></div>
+        <div class="nav-section-label">Administration</div>
 
-            <NavLink class="nav-item" href="admin/user-roles">
-                <span class="nav-icon">👥</span>
-                <span class="nav-text">User Roles</span>
-            </NavLink>
+        <NavLink class="nav-item" href="admin/roles">
+            <span class="nav-icon">🛡️</span>
+            <span class="nav-text">Roles</span>
+        </NavLink>
 
-         
-        </Authorized>
-        <NotAuthorized>
-            <NavLink class="nav-item" href="login">
-                <span class="nav-icon">🔐</span>
-                <span class="nav-text">Login</span>
-            </NavLink>
-        </NotAuthorized>
-    </AuthorizeView>
+        <NavLink class="nav-item" href="admin/user-roles">
+            <span class="nav-icon">👥</span>
+            <span class="nav-text">User Roles</span>
+        </NavLink>
+    }
 </nav>
 
 <div class="sidebar-footer">
@@ -78,5 +79,30 @@
 </div>
 
 @code {
-    // Removed toggle functionality - will be handled by CSS media queries
+    private ClaimsPrincipal? user;
+
+    /// <summary>
+    /// Returns true if the user has the SuperAdmin role.
+    /// </summary>
+    private bool IsSuperAdmin => user?.IsInRole("SuperAdmin") == true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        user = authState.User;
+
+        AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+    }
+
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        var authState = await task;
+        user = authState.User;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+    }
 }

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BookDashboardBlazor")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8f075caa42cb4ede163962dac4961745da5d7def")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+12c34447447287667d8c2c3669752bc97d64a036")]
 [assembly: System.Reflection.AssemblyProductAttribute("BookDashboardBlazor")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BookDashboardBlazor")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
