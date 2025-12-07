@@ -42,9 +42,10 @@
 @* Create Reading Goal Modal Component *@
 <GoalModal IsVisible="@(showCreateGoalModalForBookId.HasValue)"
            IsVisibleChanged="@(val => { if(!val) CloseGoalModal(); })"
+           Mode="GoalModal.GoalModalMode.Create"
            BookId="@showCreateGoalModalForBookId"
            BookTitle="@(showCreateGoalModalForBookId.HasValue ? books.FirstOrDefault(b => b.BookId == showCreateGoalModalForBookId)?.Title : "")"
-           IsBookLocked="true"
+           IsBookEditable="false"
            OnGoalCreated="HandleGoalCreated" />
 
 @* View/Edit Reading Goal Modal *@
@@ -864,7 +865,7 @@
         }
 
         Console.WriteLine($"[Discover] Updating goal ID {editingGoalId.Value} for book {bookId}");
-        var result = await ReadingGoalService.UpdateGoalAsync(editingGoalId.Value, goalModalYear, goalModalPercentage, goalModalProgress);
+        var result = await ReadingGoalService.UpdateGoalAsync(editingGoalId.Value, bookId, goalModalYear, goalModalPercentage, goalModalProgress);
 
         if (result != null && result.Code != "ERROR" && result.Code != "UNAUTHORIZED" && result.Code != "EXCEPTION")
         {

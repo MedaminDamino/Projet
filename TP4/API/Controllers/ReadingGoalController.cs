@@ -283,41 +283,70 @@ namespace API.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "SuperAdmin,Admin,User")]
+        [Authorize]
         public async Task<IActionResult> Update(int id, ReadingGoalUpdateDto updated)
         {
             try
             {
                 var userId = GetCurrentUserId();
+                Console.WriteLine($"[ReadingGoalController] Update request - Current userId: '{userId}'");
+
+                if (string.IsNullOrEmpty(userId))
+                {
+                    Console.WriteLine("[ReadingGoalController] ❌ User ID is null or empty - not authenticated");
+                    return Unauthorized(new { Message = "User not authenticated" });
+                }
 
                 var existing = await _repo.GetByIdAsync(id);
                 if (existing == null)
                 {
-                    return NotFound(new { message = "Goal not found." });
+                    return NotFound(new { Message = "Goal not found." });
                 }
+
+                Console.WriteLine($"[ReadingGoalController] Goal {id} found - ApplicationUserId: '{existing.ApplicationUserId}', UserId: {existing.UserId}");
+
+                // Validate ownership - only the goal owner can update it
+                if (!string.IsNullOrEmpty(existing.ApplicationUserId) && existing.ApplicationUserId != userId)
+                {
+                    Console.WriteLine($"[ReadingGoalController] ❌ Ownership validation FAILED - User '{userId}' attempted to update goal {id} owned by '{existing.ApplicationUserId}'");
+                    return Forbid(); // Return 403 Forbidden if user doesn't own this goal
+                }
+
+                Console.WriteLine($"[ReadingGoalController] ✅ Ownership validation PASSED for user '{userId}' on goal {id}");
 
                 var validationError = ValidateGoalInputs(updated.Year, updated.GoalPercentage, updated.Progress);
                 if (validationError != null)
                 {
-                    return BadRequest(new { message = validationError });
+                    return BadRequest(new { Message = validationError });
                 }
 
-                // Note: BookId doesn't change in update, so we keep the existing book
+                // Validate Book if changed
+                if (updated.BookId > 0 && updated.BookId != existing.BookId)
+                {
+                    var book = await _bookRepo.GetByIdAsync(updated.BookId);
+                    if (book == null)
+                    {
+                        return BadRequest(new { Message = "Book not found." });
+                    }
+                    // Update the book ID
+                    existing.BookId = updated.BookId;
+                }
+
                 if (await _repo.ExistsForUserYearBookAsync(userId, updated.Year, existing.BookId, excludeId: id))
                 {
-                    return Conflict(new { message = "You already have a goal for this book in this year." });
+                    return Conflict(new { Message = "You already have a goal for this book in this year." });
                 }
 
                 existing.Year = updated.Year;
                 existing.GoalPercentage = updated.GoalPercentage;
                 existing.Progress = updated.Progress;
-                existing.ApplicationUserId = userId;
+                // Don't modify ApplicationUserId - ownership should never change
 
                 await _repo.UpdateAsync(existing);
 
                 return Ok(new
                 {
-                    message = "Goal updated successfully.",
+                    Message = "Goal updated successfully.",
                     data = BuildGoalResponse(existing)
                 });
             }
@@ -333,16 +362,36 @@ namespace API.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "SuperAdmin,User")]
+        [Authorize]
         public async Task<IActionResult> Delete(int id)
         {
             try
             {
+                var userId = GetCurrentUserId();
+                Console.WriteLine($"[ReadingGoalController] Delete request - Current userId: '{userId}'");
+
+                if (string.IsNullOrEmpty(userId))
+                {
+                    Console.WriteLine("[ReadingGoalController] ❌ User ID is null or empty - not authenticated");
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
                 var goal = await _repo.GetByIdAsync(id);
                 if (goal == null)
                 {
                     return NotFound(new { message = "Goal not found." });
                 }
+
+                Console.WriteLine($"[ReadingGoalController] Goal {id} found - ApplicationUserId: '{goal.ApplicationUserId}', UserId: {goal.UserId}");
+
+                // Validate ownership - only the goal owner can delete it (same logic as Update)
+                if (!string.IsNullOrEmpty(goal.ApplicationUserId) && goal.ApplicationUserId != userId)
+                {
+                    Console.WriteLine($"[ReadingGoalController] ❌ Ownership validation FAILED - User '{userId}' attempted to delete goal {id} owned by '{goal.ApplicationUserId}'");
+                    return Forbid(); // Return 403 Forbidden if user doesn't own this goal
+                }
+
+                Console.WriteLine($"[ReadingGoalController] ✅ Ownership validation PASSED for user '{userId}' on goal {id}");
 
                 var deleted = await _repo.DeleteAsync(id);
                 if (!deleted)
@@ -350,6 +399,7 @@ namespace API.Controllers
                     return StatusCode(500, new { message = "Unable to delete goal. Please try again." });
                 }
 
+                Console.WriteLine($"[ReadingGoalController] ✅ Goal {id} deleted successfully by user '{userId}'");
                 return Ok(new { message = "Goal deleted successfully." });
             }
             catch (DbUpdateException dbEx)

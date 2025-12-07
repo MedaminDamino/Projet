@@ -17,6 +17,9 @@ public class AuthHeaderHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        var uri = request.RequestUri?.ToString() ?? request.RequestUri?.OriginalString ?? "unknown";
+        var isGoalEndpoint = uri.Contains("/ReadingGoal/", StringComparison.OrdinalIgnoreCase);
+        
         // Always try to add the token if it's missing
         if (request.Headers.Authorization == null)
         {
@@ -29,47 +32,34 @@ public class AuthHeaderHandler : DelegatingHandler
                 {
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", cleanToken);
                     
-                    // Debug logging for all requests (especially Review endpoints)
-                    var uri = request.RequestUri?.ToString() ?? request.RequestUri?.OriginalString ?? "unknown";
-                    var isReviewEndpoint = uri.Contains("/api/Review/", StringComparison.OrdinalIgnoreCase) || 
-                                          uri.Contains("Review/", StringComparison.OrdinalIgnoreCase);
-                    
-                    if (isReviewEndpoint)
+                    // Log ReadingGoal DELETE requests
+                    if (isGoalEndpoint && request.Method == HttpMethod.Delete)
                     {
-                        Console.WriteLine($"[AuthHeaderHandler] Added Bearer token to {request.Method} {uri}");
-                        Console.WriteLine($"[AuthHeaderHandler] Token length: {cleanToken.Length}, First 20 chars: {cleanToken.Substring(0, Math.Min(20, cleanToken.Length))}...");
+                        Console.WriteLine($"[AuthHeaderHandler] ✅ Added Bearer token to DELETE {uri}");
+                        Console.WriteLine($"[AuthHeaderHandler] Token length: {cleanToken.Length}, First 30 chars: {cleanToken.Substring(0, Math.Min(30, cleanToken.Length))}...");
                     }
                 }
                 else
                 {
-                    var uri = request.RequestUri?.ToString() ?? request.RequestUri?.OriginalString ?? "unknown";
-                    var isReviewEndpoint = uri.Contains("/api/Review/", StringComparison.OrdinalIgnoreCase) || 
-                                          uri.Contains("Review/", StringComparison.OrdinalIgnoreCase);
-                    if (isReviewEndpoint)
+                    if (isGoalEndpoint)
                     {
-                        Console.WriteLine($"[AuthHeaderHandler] Token was empty after cleaning for {request.Method} {uri}");
+                        Console.WriteLine($"[AuthHeaderHandler] ❌ Token was empty after cleaning for {request.Method} {uri}");
                     }
                 }
             }
             else
             {
-                var uri = request.RequestUri?.ToString() ?? request.RequestUri?.OriginalString ?? "unknown";
-                var isReviewEndpoint = uri.Contains("/api/Review/", StringComparison.OrdinalIgnoreCase) || 
-                                      uri.Contains("Review/", StringComparison.OrdinalIgnoreCase);
-                if (isReviewEndpoint)
+                if (isGoalEndpoint)
                 {
-                    Console.WriteLine($"[AuthHeaderHandler] No token found in localStorage for {request.Method} {uri}");
+                    Console.WriteLine($"[AuthHeaderHandler] ❌ No token found in localStorage for {request.Method} {uri}");
                 }
             }
         }
         else
         {
-            var uri = request.RequestUri?.ToString() ?? request.RequestUri?.OriginalString ?? "unknown";
-            var isReviewEndpoint = uri.Contains("/api/Review/", StringComparison.OrdinalIgnoreCase) || 
-                                  uri.Contains("Review/", StringComparison.OrdinalIgnoreCase);
-            if (isReviewEndpoint)
+            if (isGoalEndpoint && request.Method == HttpMethod.Delete)
             {
-                Console.WriteLine($"[AuthHeaderHandler] Authorization header already present for {request.Method} {uri}");
+                Console.WriteLine($"[AuthHeaderHandler] ✅ Authorization header already present for DELETE {uri}");
             }
         }
 

@@ -158,12 +158,13 @@ public class ReadingGoalService
     /// <summary>
     /// Update an existing reading goal
     /// </summary>
-    public async Task<ServerMessage<ReadingGoalViewModel>?> UpdateGoalAsync(int goalId, int year, int goalPercentage, int progress)
+    public async Task<ServerMessage<ReadingGoalViewModel>?> UpdateGoalAsync(int goalId, int bookId, int year, int goalPercentage, int progress)
     {
         try
         {
             var dto = new
             {
+                BookId = bookId,
                 Year = year,
                 GoalPercentage = goalPercentage,
                 Progress = progress

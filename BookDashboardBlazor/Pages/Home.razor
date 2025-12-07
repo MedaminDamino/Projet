@@ -181,8 +181,8 @@
                                 No active goal yet. Create one to keep yourself on track.
                             </p>
                         }
-                        <button class="btn btn-primary w-100 mt-auto" @onclick='() => OpenGoalModal(latestGoal)'>
-                            @(latestGoal is null ? "Create Goal" : "View / Update Goal")
+                        <button class="btn btn-primary w-100 mt-auto" @onclick='() => OpenGoalModal()'>
+                            Create Goal
                         </button>
                     </div>
                 </div>
@@ -253,13 +253,8 @@
     
     <GoalModal IsVisible="@showGoalModal"
                IsVisibleChanged="@(val => showGoalModal = val)"
-               IsBookLocked="@(editingGoal?.BookId > 0 && editingGoal?.BookId != null)" 
-               BookId="@(editingGoal?.BookId ?? 0)"
-               BookTitle="@(editingGoal?.BookId > 0 ? userReadingList.FirstOrDefault(b => b.BookId == editingGoal.BookId)?.Book?.Title ?? "Unknown Book" : null)"
-               GoalId="@(editingGoal?.Id)"
-               InitialYear="@(editingGoal?.Year)"
-               InitialPercentage="@(editingGoal?.GoalPercentage)"
-               InitialProgress="@(editingGoal?.Progress)"
+               Mode="GoalModal.GoalModalMode.Create"
+               IsBookEditable="true"
                OnGoalCreated="OnGoalModalClosed" />
 </div>
 
@@ -370,13 +365,9 @@
     private void NavigateTo(string uri) => NavigationManager.NavigateTo(uri);
 
     private bool showGoalModal;
-    private ReadingGoalViewModel? editingGoal;
 
-
-
-    private void OpenGoalModal(ReadingGoalViewModel? goal = null)
+    private void OpenGoalModal()
     {
-        editingGoal = goal;
         showGoalModal = true;
     }
 
@@ -385,14 +376,10 @@
         // Refresh dashboard data
         await LoadActivityOverviewAsync();
         
-        // Also refresh summary if needed
+        // Increment total goals count (always creating from Home page)
         if (summary != null)
         {
-            // If we created a new goal (editingGoal was null), increment
-            if (editingGoal == null)
-            {
-                summary.TotalGoals++; 
-            }
+            summary.TotalGoals++;
         }
     }
 

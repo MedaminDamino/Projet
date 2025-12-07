@@ -3,6 +3,10 @@
 @inject ReadingGoalService ReadingGoalService
 @inject HttpClient Http
 
+@code {
+    public enum GoalModalMode { Create, Update }
+}
+
 @if (IsVisible)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.6);" @onclick="CloseModal">
@@ -13,7 +17,7 @@
                     <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    @if (!IsBookLocked)
+                    @if (IsBookEditable)
                     {
                         <div class="mb-3">
                             <label class="form-label fw-bold">Select Book</label>
@@ -24,7 +28,7 @@
                             else
                             {
                                 <select class="form-select" @bind="selectedBookId">
-                                    <option value="">-- Choose a book --</option>
+                                    <option value="0">-- Choose a book --</option>
                                     @foreach (var book in availableBooks)
                                     {
                                         <option value="@book.BookId">@book.Title</option>
@@ -90,11 +94,12 @@
 @code {
     [Parameter] public bool IsVisible { get; set; }
     [Parameter] public EventCallback<bool> IsVisibleChanged { get; set; }
+    [Parameter] public GoalModalMode Mode { get; set; } = GoalModalMode.Create;
     [Parameter] public int? BookId { get; set; }
     [Parameter] public string? BookTitle { get; set; }
-    [Parameter] public bool IsBookLocked { get; set; }
+    [Parameter] public bool IsBookEditable { get; set; } = false;
     
-    // Edit Mode Parameters
+    // Edit Mode Parameters (only used when Mode = Update)
     [Parameter] public int? GoalId { get; set; }
     [Parameter] public int? InitialYear { get; set; }
     [Parameter] public int? InitialPercentage { get; set; }
@@ -102,7 +107,7 @@
     
     [Parameter] public EventCallback OnGoalCreated { get; set; }
 
-    private bool IsEditing => GoalId.HasValue;
+    private bool IsEditing => Mode == GoalModalMode.Update;
 
     private int goalYear = DateTime.UtcNow.Year;
     private int goalPercentage = 100;
@@ -145,18 +150,19 @@
                 // Ensure valid year
                 if (goalYear < DateTime.UtcNow.Year) goalYear = DateTime.UtcNow.Year;
 
-                if (IsBookLocked && BookId.HasValue)
+                if (!IsBookEditable && BookId.HasValue)
                 {
+                    // Read-only mode (Discover): use the passed BookId
                     selectedBookId = BookId.Value;
                 }
-                else if (!IsBookLocked)
+                else if (IsBookEditable)
                 {
-                    // If we have a BookId passed even in unlocked mode (e.g. editing an existing goal), set it
-                    if (BookId.HasValue) 
+                    // Editable mode (Home): load books and set selection
+                    if (BookId.HasValue && BookId.Value > 0) 
                     {
                         selectedBookId = BookId.Value;
                     }
-                    else if(selectedBookId == 0) // Only retain selection if valid, otherwise reset
+                    else
                     {
                         selectedBookId = 0;
                     }
@@ -206,21 +212,24 @@
     private async Task SubmitGoal()
     {
         // Validation
-        if (selectedBookId <= 0 && (!IsBookLocked || !BookId.HasValue))
+        if (!IsBookEditable && BookId.HasValue)
         {
-            if (!IsBookLocked) selectedBookId = selectedBookId; 
-            
-            if (selectedBookId == 0)
+            // Read-only mode: always use the passed BookId
+            selectedBookId = BookId.Value;
+        }
+        else if (IsBookEditable)
+        {
+            // Editable mode: validate that a book is selected
+            if (selectedBookId <= 0)
             {
-                 errorMessage = "Please select a book.";
-                 return;
+                errorMessage = "Please choose a book for this goal.";
+                return;
             }
         }
-        
-        // If locked, ensure we use the passed BookId
-        if (IsBookLocked && BookId.HasValue)
+        else
         {
-            selectedBookId = BookId.Value;
+            errorMessage = "Invalid book selection.";
+            return;
         }
 
         if (goalYear < DateTime.UtcNow.Year)
@@ -236,12 +245,19 @@
 
             ServerMessage<ReadingGoalViewModel>? result;
 
-            if (IsEditing)
+            if (Mode == GoalModalMode.Update)
             {
-                result = await ReadingGoalService.UpdateGoalAsync(GoalId!.Value, goalYear, goalPercentage, goalProgress);
+                // UPDATE mode: must have GoalId
+                if (!GoalId.HasValue)
+                {
+                    errorMessage = "Cannot update goal: Goal ID is missing.";
+                    return;
+                }
+                result = await ReadingGoalService.UpdateGoalAsync(GoalId.Value, selectedBookId, goalYear, goalPercentage, goalProgress);
             }
             else
             {
+                // CREATE mode: always create, even if GoalId is set
                 result = await ReadingGoalService.CreateQuickGoalAsync(selectedBookId, goalYear, goalPercentage, goalProgress);
             }
 
