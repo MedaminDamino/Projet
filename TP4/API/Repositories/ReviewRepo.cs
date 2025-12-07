@@ -1,6 +1,7 @@
 ﻿using API.Interfaces;
 using API.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace API.Repositories
 {
@@ -59,6 +60,15 @@ namespace API.Repositories
         public async Task<bool> ExistsForBookAsync(int bookId)
         {
             return await _context.Reviews.AnyAsync(r => r.BookId == bookId);
+        }
+
+        public async Task<IEnumerable<Review>> GetByUserAsync(string userId)
+        {
+            return await _context.Reviews
+                .Include(r => r.Book)
+                .Where(r => r.ApplicationUserId == userId)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToListAsync();
         }
     }
 }

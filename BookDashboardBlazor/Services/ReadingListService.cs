@@ -1,4 +1,6 @@
+using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using BookDashboardBlazor.Models;
 
 namespace BookDashboardBlazor.Services;
@@ -7,6 +9,10 @@ public class ReadingListService
 {
     private readonly HttpClient _http;
     private const string BaseUrl = "api/ReadingList";
+    private readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     public ReadingListService(HttpClient http)
     {
@@ -24,21 +30,14 @@ public class ReadingListService
     {
         try
         {
-            Console.WriteLine("[ReadingListService] GetUserList - Starting API call to /api/ReadingList/user");
             var response = await _http.GetAsync($"{BaseUrl}/user");
-            Console.WriteLine($"[ReadingListService] GetUserList - Response status: {response.StatusCode}");
             
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                Console.WriteLine("[ReadingListService] ⚠️ Unauthorized access to reading list (401)");
                 return new HashSet<int>();
-            }
 
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"[ReadingListService] ❌ Failed to get user list: {response.StatusCode}");
-                Console.WriteLine($"[ReadingListService] Error content: {errorContent}");
                 return new HashSet<int>();
             }
 
@@ -46,18 +45,46 @@ public class ReadingListService
             if (apiResponse?.Success == true && apiResponse.Data != null)
             {
                 var bookIds = apiResponse.Data.Select(item => item.BookId).ToHashSet();
-                Console.WriteLine($"[ReadingListService] ✅ Successfully loaded {bookIds.Count} books in reading list: [{string.Join(", ", bookIds)}]");
                 return bookIds;
             }
 
-            Console.WriteLine("[ReadingListService] ⚠️ API response was unsuccessful or contained no data");
             return new HashSet<int>();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ReadingListService] ❌ Exception fetching user reading list: {ex.Message}");
-            Console.WriteLine($"[ReadingListService] Stack trace: {ex.StackTrace}");
             return new HashSet<int>();
+        }
+    }
+
+    /// <summary>
+    /// Returns the detailed reading list for the authenticated user, including book metadata.
+    /// </summary>
+    public async Task<List<ReadingList>> GetCurrentUserReadingListAsync()
+    {
+        try
+        {
+            var response = await _http.GetAsync($"{BaseUrl}/user");
+            var raw = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+                return new List<ReadingList>();
+
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return new List<ReadingList>();
+            }
+
+            var apiResponse = JsonSerializer.Deserialize<ApiResponse<List<ReadingList>>>(raw, _jsonOptions);
+            if (apiResponse?.Success == true && apiResponse.Data != null)
+            {
+                return apiResponse.Data;
+            }
+
+            return new List<ReadingList>();
+        }
+        catch (Exception ex)
+        {
+            return new List<ReadingList>();
         }
     }
 
@@ -73,23 +100,19 @@ public class ReadingListService
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                Console.WriteLine($"[ReadingListService] Unauthorized when adding book {bookId}");
-                return false;
+            return false;
             }
 
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"[ReadingListService] Failed to add book {bookId}: {response.StatusCode} - {errorContent}");
                 return false;
             }
 
-            Console.WriteLine($"[ReadingListService] Successfully added book {bookId} to reading list");
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ReadingListService] Error adding book {bookId} to reading list: {ex.Message}");
             return false;
         }
     }
@@ -105,23 +128,19 @@ public class ReadingListService
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                Console.WriteLine($"[ReadingListService] Unauthorized when removing book {bookId}");
-                return false;
+            return false;
             }
 
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"[ReadingListService] Failed to remove book {bookId}: {response.StatusCode} - {errorContent}");
                 return false;
             }
 
-            Console.WriteLine($"[ReadingListService] Successfully removed book {bookId} from reading list");
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ReadingListService] Error removing book {bookId} from reading list: {ex.Message}");
             return false;
         }
     }
@@ -138,7 +157,6 @@ public class ReadingListService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error fetching reading list: {ex.Message}");
             return new List<ReadingList>();
         }
     }
@@ -151,7 +169,6 @@ public class ReadingListService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error fetching reading list item {id}: {ex.Message}");
             return null;
         }
     }
@@ -165,7 +182,6 @@ public class ReadingListService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error creating reading list item: {ex.Message}");
             return false;
         }
     }
@@ -179,7 +195,6 @@ public class ReadingListService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error updating reading list item {id}: {ex.Message}");
             return false;
         }
     }
@@ -193,7 +208,6 @@ public class ReadingListService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error deleting reading list item {id}: {ex.Message}");
             return false;
         }
     }
@@ -213,7 +227,6 @@ public class ReadingListService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error adding book {bookId} to reading list: {ex.Message}");
             return false;
         }
     }

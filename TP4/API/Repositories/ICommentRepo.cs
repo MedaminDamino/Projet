@@ -9,5 +9,6 @@ namespace API.Interfaces
         Task AddAsync(Comment comment);
         Task UpdateAsync(Comment comment);
         Task<bool> DeleteAsync(int id);
+        Task<IEnumerable<Comment>> GetByUserAsync(string userId);
     }
 }

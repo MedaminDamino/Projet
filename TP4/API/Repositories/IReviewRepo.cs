@@ -11,5 +11,6 @@ namespace API.Interfaces
         Task<bool> DeleteAsync(int id);
         Task<Review?> GetByUserAndBookAsync(string userId, int bookId);
         Task<bool> ExistsForBookAsync(int bookId);
+        Task<IEnumerable<Review>> GetByUserAsync(string userId);
     }
 }

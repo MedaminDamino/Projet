@@ -1,6 +1,7 @@
 ﻿using API.Interfaces;
 using API.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace API.Repositories
 {
@@ -17,6 +18,7 @@ namespace API.Repositories
         {
             return await _context.Comments
                 .Include(c => c.Review)
+                .ThenInclude(r => r!.Book)
                 .ToListAsync();
         }
 
@@ -24,6 +26,7 @@ namespace API.Repositories
         {
             return await _context.Comments
                 .Include(c => c.Review)
+                .ThenInclude(r => r!.Book)
                 .FirstOrDefaultAsync(c => c.CommentID == id);
         }
 
@@ -47,6 +50,16 @@ namespace API.Repositories
             _context.Comments.Remove(comment);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<IEnumerable<Comment>> GetByUserAsync(string userId)
+        {
+            return await _context.Comments
+                .Include(c => c.Review)
+                .ThenInclude(r => r!.Book)
+                .Where(c => c.ApplicationUserId == userId)
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync();
         }
     }
 }

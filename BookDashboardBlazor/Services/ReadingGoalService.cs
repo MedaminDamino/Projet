@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Linq;
 using BookDashboardBlazor.Models;
 
 namespace BookDashboardBlazor.Services;
@@ -24,7 +25,6 @@ public class ReadingGoalService
     {
         try
         {
-            Console.WriteLine($"[ReadingGoalService] Creating quick goal for book {bookId}: Year={year}, Goal%={goalPercentage}, Progress={progress}");
             var dto = new
             {
                 BookId = bookId,
@@ -37,7 +37,6 @@ public class ReadingGoalService
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                Console.WriteLine($"[ReadingGoalService] ⚠️ Unauthorized when creating goal");
                 return new ServerMessage<ReadingGoalViewModel>
                 {
                     Message = "Login to create goals",
@@ -48,7 +47,6 @@ public class ReadingGoalService
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"[ReadingGoalService] ❌ Failed to create goal: {response.StatusCode} - {errorContent}");
                 
                 // Try to parse error message
                 try
@@ -71,7 +69,6 @@ public class ReadingGoalService
             }
 
             var apiResponse = await response.Content.ReadFromJsonAsync<ApiSuccessResponse>();
-            Console.WriteLine($"[ReadingGoalService] ✅ Successfully created goal");
             
             return new ServerMessage<ReadingGoalViewModel>
             {
@@ -81,7 +78,6 @@ public class ReadingGoalService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ReadingGoalService] ❌ Exception creating goal: {ex.Message}");
             return new ServerMessage<ReadingGoalViewModel>
             {
                 Message = "An error occurred while creating the goal.",
@@ -97,21 +93,14 @@ public class ReadingGoalService
     {
         try
         {
-            Console.WriteLine("[ReadingGoalService] GetUserGoals - Starting API call to /api/ReadingGoal/user");
             var response = await _http.GetAsync($"{BaseUrl}/user");
-            Console.WriteLine($"[ReadingGoalService] GetUserGoals - Response status: {response.StatusCode}");
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                Console.WriteLine("[ReadingGoalService] ⚠️ Unauthorized access to reading goals (401)");
                 return new Dictionary<int, ReadingGoalViewModel>();
-            }
 
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"[ReadingGoalService] ❌ Failed to get user goals: {response.StatusCode}");
-                Console.WriteLine($"[ReadingGoalService] Error content: {errorContent}");
                 return new Dictionary<int, ReadingGoalViewModel>();
             }
 
@@ -119,18 +108,35 @@ public class ReadingGoalService
             if (apiResponse?.Success == true && apiResponse.Data != null)
             {
                 var goalsDictionary = apiResponse.Data.ToDictionary(g => g.BookId);
-                Console.WriteLine($"[ReadingGoalService] ✅ Successfully loaded {goalsDictionary.Count} reading goals");
                 return goalsDictionary;
             }
 
-            Console.WriteLine("[ReadingGoalService] ⚠️ API response was unsuccessful or contained no data");
             return new Dictionary<int, ReadingGoalViewModel>();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ReadingGoalService] ❌ Exception fetching user reading goals: {ex.Message}");
             return new Dictionary<int, ReadingGoalViewModel>();
         }
+    }
+
+    /// <summary>
+    /// Returns the list of goals for the authenticated user.
+    /// </summary>
+    public async Task<List<ReadingGoalViewModel>> GetUserGoalsListAsync()
+    {
+        var goalsDictionary = await GetUserGoalsAsync();
+        return goalsDictionary.Values.ToList();
+    }
+
+    /// <summary>
+    /// Returns the most recent goal for the authenticated user.
+    /// </summary>
+    public async Task<ReadingGoalViewModel?> GetLatestUserGoalAsync()
+    {
+        var goals = await GetUserGoalsListAsync();
+        return goals
+            .OrderByDescending(g => g.CreatedAt)
+            .FirstOrDefault();
     }
 
     // Helper DTOs
@@ -156,7 +162,6 @@ public class ReadingGoalService
     {
         try
         {
-            Console.WriteLine($"[ReadingGoalService] Updating goal {goalId}: Year={year}, Goal%={goalPercentage}, Progress={progress}");
             var dto = new
             {
                 Year = year,
@@ -168,7 +173,6 @@ public class ReadingGoalService
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                Console.WriteLine($"[ReadingGoalService] ⚠️ Unauthorized when updating goal");
                 return new ServerMessage<ReadingGoalViewModel>
                 {
                     Message = "Login to update goals",
@@ -179,7 +183,6 @@ public class ReadingGoalService
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"[ReadingGoalService] ❌ Failed to update goal: {response.StatusCode} - {errorContent}");
                 
                 try
                 {
@@ -200,7 +203,6 @@ public class ReadingGoalService
                 }
             }
 
-            Console.WriteLine($"[ReadingGoalService] ✅ Successfully updated goal");
             return new ServerMessage<ReadingGoalViewModel>
             {
                 Message = "Goal updated successfully"
@@ -208,7 +210,6 @@ public class ReadingGoalService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ReadingGoalService] ❌ Exception updating goal: {ex.Message}");
             return new ServerMessage<ReadingGoalViewModel>
             {
                 Message = "An error occurred while updating the goal.",
@@ -224,12 +225,10 @@ public class ReadingGoalService
     {
         try
         {
-            Console.WriteLine($"[ReadingGoalService] Deleting goal {goalId}");
             var response = await _http.DeleteAsync($"{BaseUrl}/{goalId}");
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                Console.WriteLine($"[ReadingGoalService] ⚠️ Unauthorized when deleting goal");
                 return new ServerMessage<ReadingGoalViewModel>
                 {
                     Message = "Login to delete goals",
@@ -240,7 +239,6 @@ public class ReadingGoalService
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"[ReadingGoalService] ❌ Failed to delete goal: {response.StatusCode} - {errorContent}");
                 
                 try
                 {
@@ -261,7 +259,6 @@ public class ReadingGoalService
                 }
             }
 
-            Console.WriteLine($"[ReadingGoalService] ✅ Successfully deleted goal");
             return new ServerMessage<ReadingGoalViewModel>
             {
                 Message = "Goal deleted successfully"
@@ -269,7 +266,6 @@ public class ReadingGoalService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ReadingGoalService] ❌ Exception deleting goal: {ex.Message}");
             return new ServerMessage<ReadingGoalViewModel>
             {
                 Message = "An error occurred while deleting the goal.",

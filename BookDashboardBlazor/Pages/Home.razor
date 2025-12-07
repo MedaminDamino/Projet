@@ -1,123 +1,413 @@
 ﻿@page "/"
 @attribute [Authorize]
+@using System.Linq
+@inject DashboardService DashboardService
+@inject ReadingListService ReadingListService
+@inject ReadingGoalService ReadingGoalService
+@inject ReviewService ReviewService
+@inject CommentService CommentService
+@inject NavigationManager NavigationManager
 
 <PageTitle>Book Dashboard - Home</PageTitle>
 
 <div class="home-container">
-    <!-- Hero Section -->
-    <div class="hero-section">
-        <div class="hero-content">
-            <h1 class="hero-title">
-                <span class="gradient-text">Welcome to BookDashboard</span>
-            </h1>
-            <p class="hero-subtitle">Your personal library management system</p>
-            <p class="hero-description">Track your reading journey, discover new books, and achieve your reading goals</p>
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-muted">Loading dashboard...</p>
         </div>
-        <div class="hero-decoration">
-            <div class="floating-book">📚</div>
+    }
+    else if (errorMessage != null)
+    {
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
         </div>
-    </div>
-
-    <!-- Stats Cards -->
-    <div class="stats-grid">
-        <div class="stat-card stat-card-primary">
-            <div class="stat-icon">📖</div>
-            <div class="stat-content">
-                <div class="stat-label">Total Books</div>
-                <div class="stat-value">@totalBooks</div>
-                <div class="stat-trend positive">+12% this month</div>
+    }
+    else if (summary != null)
+    {
+        <!-- Hero Section -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <span class="gradient-text">Welcome to BookDashboard</span>
+                </h1>
+                <p class="hero-subtitle">Your personal library management system</p>
+                <p class="hero-description">Track your reading journey, discover new books, and achieve your reading goals</p>
+            </div>
+            <div class="hero-decoration">
+                <div class="floating-book">📚</div>
             </div>
         </div>
 
-        <div class="stat-card stat-card-success">
-            <div class="stat-icon">✍️</div>
-            <div class="stat-content">
-                <div class="stat-label">Authors</div>
-                <div class="stat-value">@totalAuthors</div>
-                <div class="stat-trend positive">+5 new</div>
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card stat-card-primary">
+                <div class="stat-icon">📖</div>
+                <div class="stat-content">
+                    <div class="stat-label">Total Books</div>
+                    <div class="stat-value">@summary.TotalBooks</div>
+                    <div class="stat-trend positive">In library</div>
+                </div>
+            </div>
+
+            <div class="stat-card stat-card-success">
+                <div class="stat-icon">✍️</div>
+                <div class="stat-content">
+                    <div class="stat-label">Authors</div>
+                    <div class="stat-value">@summary.TotalAuthors</div>
+                    <div class="stat-trend positive">Creators</div>
+                </div>
+            </div>
+
+            <div class="stat-card stat-card-warning">
+                <div class="stat-icon">⭐</div>
+                <div class="stat-content">
+                    <div class="stat-label">Reviews</div>
+                    <div class="stat-value">@summary.TotalReviews</div>
+                    <div class="stat-trend positive">Community feedback</div>
+                </div>
+            </div>
+
+            <div class="stat-card stat-card-info">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-content">
+                    <div class="stat-label">Reading Goals</div>
+                    <div class="stat-value">@summary.TotalGoals</div>
+                    <div class="stat-trend neutral">Tracked</div>
+                </div>
             </div>
         </div>
 
-        <div class="stat-card stat-card-warning">
-            <div class="stat-icon">⭐</div>
-            <div class="stat-content">
-                <div class="stat-label">Reviews</div>
-                <div class="stat-value">@totalReviews</div>
-                <div class="stat-trend positive">+23 this week</div>
-            </div>
+
+        <!-- Activity Overview -->
+        <div class="section-header">
+            <h2>Your Activity Overview</h2>
+            <p>Stay in sync with your personal reading journey</p>
         </div>
-
-        <div class="stat-card stat-card-info">
-            <div class="stat-icon">🎯</div>
-            <div class="stat-content">
-                <div class="stat-label">Reading Goals</div>
-                <div class="stat-value">@activeGoals</div>
-                <div class="stat-trend neutral">In progress</div>
+        
+        @if (activityLoading)
+        {
+            <div class="activity-loading text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading activity...</span>
+                </div>
+                <p class="mt-3 text-muted">Loading your personalized insights...</p>
             </div>
-        </div>
-    </div>
+        }
+        else if (!string.IsNullOrEmpty(activityError))
+        {
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-circle me-2"></i>
+                @activityError
+                <button type="button" class="btn-close" @onclick="() => activityError = null"></button>
+            </div>
+        }
+        else
+        {
+            <div class="row g-4 mb-5">
+                <!-- Card 1: Reading List -->
+                <div class="col-12 col-md-6 col-lg-3">
+                    <div class="activity-card books-card h-100">
+                        <div class="activity-card-header">
+                            <span class="activity-icon" aria-hidden="true">
+                                <i class="bi bi-book-half"></i>
+                            </span>
+                            <div>
+                                <p class="activity-subtitle">Your current reading list</p>
+                                <h3>Books You're Reading</h3>
+                            </div>
+                        </div>
+                        <div class="activity-metric">
+                            <span>@userReadingList.Count</span>
+                            @((userReadingList.Count == 1 ? "book" : "books"))
+                        </div>
+                        @if (latestReadingListItem is not null && latestReadingListItem.Book is not null && !string.IsNullOrWhiteSpace(latestReadingListItem.Book.ImageUrl))
+                        {
+                            <div class="book-cover-preview">
+                                <img src="@latestReadingListItem.Book.ImageUrl" alt="@latestReadingListItem.Book.Title" />
+                                <div>
+                                    <p class="book-cover-label">Latest addition</p>
+                                    <p class="book-cover-title">@latestReadingListItem.Book.Title</p>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="activity-empty-state mt-3">
+                                @(userReadingList.Count == 0
+                                    ? "You haven't added any books yet."
+                                    : "Add cover images to see them highlighted here.")
+                            </p>
+                        }
+                        <button class="btn btn-primary w-100 mt-auto" @onclick='() => NavigateTo("/readinglist")'>
+                            @(userReadingList.Count == 0 ? "Add Books" : "Open Reading List")
+                        </button>
+                    </div>
+                </div>
 
-    <!-- Quick Actions -->
-    <div class="section-header">
-        <h2>Quick Actions</h2>
-        <p>Jump right into what you need</p>
-    </div>
+                <!-- Card 2: Goal Progress -->
+                <div class="col-12 col-md-6 col-lg-3">
+                    <div class="activity-card goals-card h-100">
+                        <div class="activity-card-header">
+                            <span class="activity-icon" aria-hidden="true">
+                                <i class="bi bi-bullseye"></i>
+                            </span>
+                            <div>
+                                <p class="activity-subtitle">Your goal status</p>
+                                <h3>Your Goal Progress</h3>
+                            </div>
+                        </div>
+                        @if (latestGoal is not null)
+                        {
+                            <p class="activity-pill">Goal for @latestGoal.Year</p>
+                            <div class="goal-progress">
+                                <div class="goal-progress-bar">
+                                    <div class="goal-progress-fill" style="width: @goalCompletionPercent%"></div>
+                                </div>
+                                <div class="goal-progress-meta">
+                                    <span class="goal-progress-value">@goalCompletionPercent.ToString("0")%</span>
+                                    <span class="goal-progress-caption">@latestGoal.Progress% of @latestGoal.GoalPercentage%</span>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="activity-empty-state">
+                                No active goal yet. Create one to keep yourself on track.
+                            </p>
+                        }
+                        <button class="btn btn-primary w-100 mt-auto" @onclick='() => OpenGoalModal(latestGoal)'>
+                            @(latestGoal is null ? "Create Goal" : "View / Update Goal")
+                        </button>
+                    </div>
+                </div>
 
-    <div class="quick-actions-grid">
-        <a href="/books" class="action-card">
-            <div class="action-icon">📚</div>
-            <h3>Browse Books</h3>
-            <p>Explore your entire collection</p>
-            <div class="action-arrow">→</div>
-        </a>
+                <!-- Card 3: Ratings -->
+                <div class="col-12 col-md-6 col-lg-3">
+                    <div class="activity-card ratings-card h-100">
+                        <div class="activity-card-header">
+                            <span class="activity-icon" aria-hidden="true">
+                                <i class="bi bi-star-fill"></i>
+                            </span>
+                            <div>
+                                <p class="activity-subtitle">Books you've rated</p>
+                                <h3>Your Ratings</h3>
+                            </div>
+                        </div>
+                        <div class="ratings-stat">
+                            <span>★ @averageRating.ToString("0.0")</span>
+                            <p>Average rating</p>
+                        </div>
+                        <p class="activity-detail">@userRatings.Count @((userRatings.Count == 1 ? "rating" : "ratings")) recorded</p>
+                        <button class="btn btn-primary w-100 mt-auto" @onclick='() => NavigateTo("/discover?rated=true")'>
+                            See Rated Books
+                        </button>
+                    </div>
+                </div>
 
-        <a href="/authors" class="action-card">
-            <div class="action-icon">✍️</div>
-            <h3>Manage Authors</h3>
-            <p>View and organize authors</p>
-            <div class="action-arrow">→</div>
-        </a>
-
-        <a href="/reviews" class="action-card">
-            <div class="action-icon">⭐</div>
-            <h3>Read Reviews</h3>
-            <p>See what others are saying</p>
-            <div class="action-arrow">→</div>
-        </a>
-
-        <a href="/goals" class="action-card">
-            <div class="action-icon">🎯</div>
-            <h3>Track Goals</h3>
-            <p>Monitor your reading progress</p>
-            <div class="action-arrow">→</div>
-        </a>
-
-        <a href="/genres" class="action-card">
-            <div class="action-icon">🏷️</div>
-            <h3>Explore Genres</h3>
-            <p>Discover by category</p>
-            <div class="action-arrow">→</div>
-        </a>
-
-        <a href="/comments" class="action-card">
-            <div class="action-icon">💬</div>
-            <h3>View Comments</h3>
-            <p>Join the conversation</p>
-            <div class="action-arrow">→</div>
-        </a>
-    </div>
+                <!-- Card 4: Comments -->
+                <div class="col-12 col-md-6 col-lg-3">
+                    <div class="activity-card comments-card h-100">
+                        <div class="activity-card-header">
+                            <span class="activity-icon" aria-hidden="true">
+                                <i class="bi bi-chat-dots"></i>
+                            </span>
+                            <div>
+                                <p class="activity-subtitle">Your latest activity</p>
+                                <h3>Recent Comments</h3>
+                            </div>
+                        </div>
+                        @if (recentUserComments.Any())
+                        {
+                            <ul class="activity-comments-list">
+                                @foreach (var comment in recentUserComments)
+                                {
+                                    <li>
+                                        <p class="comment-book">@comment.BookTitle</p>
+                                        <p class="comment-text">@Truncate(comment.CommentText, 110)</p>
+                                        <p class="comment-date">@comment.CreatedAt.ToLocalTime().ToString("MMM dd")</p>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p class="activity-empty-state">
+                                No comments yet. Share your thoughts on a book to see them here.
+                            </p>
+                        }
+                        <button class="btn btn-primary w-100 mt-auto" @onclick='() => NavigateTo("/comments")'>
+                            View All Comments
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+        }
+    }
+    
+    <GoalModal IsVisible="@showGoalModal"
+               IsVisibleChanged="@(val => showGoalModal = val)"
+               IsBookLocked="@(editingGoal?.BookId > 0 && editingGoal?.BookId != null)" 
+               BookId="@(editingGoal?.BookId ?? 0)"
+               BookTitle="@(editingGoal?.BookId > 0 ? userReadingList.FirstOrDefault(b => b.BookId == editingGoal.BookId)?.Book?.Title ?? "Unknown Book" : null)"
+               GoalId="@(editingGoal?.Id)"
+               InitialYear="@(editingGoal?.Year)"
+               InitialPercentage="@(editingGoal?.GoalPercentage)"
+               InitialProgress="@(editingGoal?.Progress)"
+               OnGoalCreated="OnGoalModalClosed" />
 </div>
 
 @code {
-    private int totalBooks = 156;
-    private int totalAuthors = 42;
-    private int totalReviews = 89;
-    private int activeGoals = 3;
+    private DashboardSummary? summary;
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    private bool activityLoading = true;
+    private string? activityError;
+    private List<ReadingList> userReadingList = new();
+    private ReadingList? latestReadingListItem;
+    private ReadingGoalViewModel? latestGoal;
+    private double goalCompletionPercent;
+    private List<Review> userRatings = new();
+    private double averageRating;
+    private List<UserComment> userComments = new();
+    private List<UserComment> recentUserComments = new();
+
+
 
     protected override async Task OnInitializedAsync()
     {
-        // In a real application, you would fetch these stats from your API
-        // For now, we're using placeholder values that work by default
-        await Task.CompletedTask;
+        await LoadDashboardAsync();
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        activityError = null;
+        activityLoading = true;
+
+        var activityTask = LoadActivityOverviewAsync();
+
+        try
+        {
+            Console.WriteLine("[Home] Loading dashboard data...");
+            summary = await DashboardService.GetDashboardSummaryAsync();
+            Console.WriteLine("[Home] ✅ Dashboard loaded successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Home] ❌ Error loading dashboard: {ex.Message}");
+            errorMessage = "Failed to load dashboard statistics. Please try refreshing the page.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+
+        await activityTask;
+    }
+
+    private async Task LoadActivityOverviewAsync()
+    {
+        try
+        {
+            var readingListTask = ReadingListService.GetCurrentUserReadingListAsync();
+            var goalTask = ReadingGoalService.GetLatestUserGoalAsync();
+            var ratingsTask = ReviewService.GetUserReviewsAsync();
+            var commentsTask = CommentService.GetUserCommentsAsync();
+
+            await Task.WhenAll(readingListTask, goalTask, ratingsTask, commentsTask);
+
+            userReadingList = readingListTask.Result ?? new List<ReadingList>();
+            latestGoal = goalTask.Result;
+            userRatings = ratingsTask.Result ?? new List<Review>();
+            userComments = commentsTask.Result ?? new List<UserComment>();
+
+            latestReadingListItem = userReadingList
+                .OrderByDescending(r => r.AddedAt)
+                .FirstOrDefault();
+
+            goalCompletionPercent = CalculateGoalCompletionPercent(latestGoal);
+            averageRating = userRatings.Count == 0
+                ? 0
+                : Math.Round(userRatings.Average(r => r.Rating), 1);
+
+            recentUserComments = userComments
+                .OrderByDescending(c => c.CreatedAt)
+                .Take(2)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            activityError = "Unable to load your activity overview at the moment.";
+            Console.WriteLine($"[Home] ❌ Activity overview error: {ex.Message}");
+        }
+        finally
+        {
+            activityLoading = false;
+        }
+    }
+
+    private double CalculateGoalCompletionPercent(ReadingGoalViewModel? goal)
+    {
+        if (goal is null || goal.GoalPercentage <= 0)
+        {
+            return 0;
+        }
+
+        var percent = (goal.Progress / (double)goal.GoalPercentage) * 100;
+        percent = Math.Clamp(percent, 0, 100);
+        return Math.Round(percent, 1);
+    }
+
+    private void NavigateTo(string uri) => NavigationManager.NavigateTo(uri);
+
+    private bool showGoalModal;
+    private ReadingGoalViewModel? editingGoal;
+
+
+
+    private void OpenGoalModal(ReadingGoalViewModel? goal = null)
+    {
+        editingGoal = goal;
+        showGoalModal = true;
+    }
+
+    private async Task OnGoalModalClosed()
+    {
+        // Refresh dashboard data
+        await LoadActivityOverviewAsync();
+        
+        // Also refresh summary if needed
+        if (summary != null)
+        {
+            // If we created a new goal (editingGoal was null), increment
+            if (editingGoal == null)
+            {
+                summary.TotalGoals++; 
+            }
+        }
+    }
+
+    private string Truncate(string? value, int length)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        if (value.Length <= length)
+        {
+            return value;
+        }
+
+        return value.Substring(0, length) + "...";
     }
 }

@@ -27,5 +27,7 @@ builder.Services.AddScoped<BookDiscoverService>();
 builder.Services.AddScoped<ReadingListService>();
 builder.Services.AddScoped<ReviewService>();
 builder.Services.AddScoped<ReadingGoalService>();
+builder.Services.AddScoped<CommentService>();
+builder.Services.AddScoped<DashboardService>();
 
 await builder.Build().RunAsync();

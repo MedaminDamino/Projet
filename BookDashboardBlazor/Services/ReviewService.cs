@@ -26,8 +26,6 @@ public class ReviewService
             var response = await _http.GetAsync($"api/Review/user-rating?bookId={bookId}");
             var raw = await response.Content.ReadAsStringAsync();
             
-            Console.WriteLine($"[ReviewService] GetUserRatingAsync - BookId: {bookId}, Status: {response.StatusCode}, Raw: {raw?.Substring(0, Math.Min(200, raw?.Length ?? 0))}");
-            
             // Handle 204 No Content (shouldn't happen with current backend, but handle it)
             if (response.StatusCode == HttpStatusCode.NoContent || string.IsNullOrWhiteSpace(raw))
             {
@@ -51,18 +49,15 @@ public class ReviewService
                 try
                 {
                     ratingData = JsonSerializer.Deserialize<UserRatingDto>(raw, _jsonOptions);
-                    Console.WriteLine($"[ReviewService] GetUserRatingAsync - Direct deserialization successful for book {bookId}");
                 }
                 catch (JsonException ex)
                 {
-                    Console.WriteLine($"[ReviewService] GetUserRatingAsync - Direct deserialization failed: {ex.Message}");
                 }
             }
 
             if (response.IsSuccessStatusCode)
             {
                 var finalData = ratingData ?? new UserRatingDto { BookId = bookId, Rating = 0 };
-                Console.WriteLine($"[ReviewService] GetUserRatingAsync - Final rating: {finalData.Rating} for book {bookId}");
                 return ReviewServiceResult<UserRatingDto>.SuccessResult(finalData, message);
             }
 
@@ -80,7 +75,6 @@ public class ReviewService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ReviewService] GetUserRatingAsync exception for book {bookId}: {ex.Message}");
             // On exception, return success with rating 0 to allow graceful degradation
             var exceptionData = new UserRatingDto { BookId = bookId, Rating = 0 };
             return ReviewServiceResult<UserRatingDto>.SuccessResult(exceptionData, "Unable to retrieve rating.");
@@ -92,18 +86,10 @@ public class ReviewService
         try
         {
             var dto = new RateBookDto { BookId = bookId, Rating = rating };
-            
-            // Debug: Check if Authorization header is present
-            Console.WriteLine($"[ReviewService] RateBookAsync - BaseAddress: {_http.BaseAddress}");
-            Console.WriteLine($"[ReviewService] RateBookAsync - Has DefaultRequestHeaders.Authorization: {_http.DefaultRequestHeaders.Authorization != null}");
-            
             var response = await _http.PostAsJsonAsync("api/Review/rate", dto);
             var raw = await response.Content.ReadAsStringAsync();
             var serverMessage = DeserializeServerMessage<UserRatingDto>(raw);
             
-            Console.WriteLine($"[ReviewService] RateBookAsync - Response Status: {response.StatusCode}");
-            Console.WriteLine($"[ReviewService] RateBookAsync - Response Content: {raw.Substring(0, Math.Min(200, raw.Length))}");
-
             if (response.IsSuccessStatusCode)
             {
                 var data = serverMessage?.Data ?? new UserRatingDto { BookId = bookId, Rating = rating };
@@ -126,11 +112,36 @@ public class ReviewService
         }
     }
 
+    public async Task<List<Review>> GetUserReviewsAsync()
+    {
+        try
+        {
+            var response = await _http.GetAsync("api/Review/user");
+            var raw = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                return new List<Review>();
+            }
+
+            var serverMessage = DeserializeServerMessage<List<Review>>(raw);
+            if (serverMessage?.Data != null)
+            {
+                return serverMessage.Data;
+            }
+
+            return new List<Review>();
+        }
+        catch (Exception ex)
+        {
+            return new List<Review>();
+        }
+    }
+
     private ServerMessage<T>? DeserializeServerMessage<T>(string json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
-            Console.WriteLine($"[ReviewService] DeserializeServerMessage - Empty JSON");
             return null;
         }
 
@@ -138,12 +149,10 @@ public class ReviewService
         {
             var result = JsonSerializer.Deserialize<ServerMessage<T>>(json, _jsonOptions);
             var hasData = result != null && result.Data != null;
-            Console.WriteLine($"[ReviewService] DeserializeServerMessage - Success: {result != null}, HasData: {hasData}");
             return result;
         }
         catch (JsonException ex)
         {
-            Console.WriteLine($"[ReviewService] DeserializeServerMessage - JSON Exception: {ex.Message}, JSON: {json.Substring(0, Math.Min(200, json.Length))}");
             return null;
         }
     }

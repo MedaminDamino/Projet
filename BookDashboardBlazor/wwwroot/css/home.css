@@ -236,100 +236,246 @@
 }
 
 /* ============================================
-   QUICK ACTIONS GRID
+   ACTIVITY OVERVIEW GRID
    ============================================ */
 
-.quick-actions-grid {
+.activity-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.25rem;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
     margin-bottom: 2.5rem;
 }
 
-.action-card {
+.activity-card {
     background: var(--color-bg-primary, #ffffff);
     border: 1px solid var(--color-border-medium, #e5e7eb);
-    border-radius: var(--radius-lg, 0.75rem);
+    border-radius: var(--radius-xl, 1rem);
     padding: 1.75rem;
-    text-decoration: none;
-    color: var(--color-text-primary, #111827);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    box-shadow: var(--shadow-sm, 0 1px 3px 0 rgba(0, 0, 0, 0.1));
+    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
     position: relative;
     overflow: hidden;
+    min-height: 260px;
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
 }
 
-.action-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--color-primary, #6366f1), var(--color-info, #3b82f6));
-    transform: scaleX(0);
-    transition: transform 0.3s ease;
-}
-
-.action-card:hover::before {
-    transform: scaleX(1);
-}
-
-.action-card:hover {
+.activity-card:hover {
+    box-shadow: var(--shadow-lg);
     transform: translateY(-4px);
-    box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
-    border-color: var(--color-primary, #6366f1);
 }
 
-.action-icon {
-    font-size: 2.25rem;
+.activity-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.activity-icon {
     width: 56px;
     height: 56px;
+    border-radius: var(--radius-lg, 0.75rem);
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 0.875rem;
-    background: var(--color-bg-secondary, #f9fafb);
-    margin-bottom: 0.25rem;
-    transition: all 0.3s ease;
+    font-size: 1.5rem;
 }
 
-.action-card:hover .action-icon {
-    background: var(--color-primary, #6366f1);
-    color: white;
-    transform: scale(1.1);
+.activity-icon .bi {
+    font-size: 1.5rem;
 }
 
-.action-card h3 {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: var(--color-text-primary, #111827);
+.activity-card.books-card .activity-icon {
+    background: var(--color-primary-light, #eef2ff);
+    color: var(--color-primary, #6366f1);
+}
+
+.activity-card.goals-card .activity-icon {
+    background: var(--color-success-light, #d1fae5);
+    color: var(--color-success, #10b981);
+}
+
+.activity-card.ratings-card .activity-icon {
+    background: var(--color-warning-light, #fef3c7);
+    color: var(--color-warning, #f59e0b);
+}
+
+.activity-card.comments-card .activity-icon {
+    background: var(--color-info-light, #dbeafe);
+    color: var(--color-info, #3b82f6);
+}
+
+.activity-subtitle {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
     margin: 0;
-    line-height: 1.4;
+    color: var(--color-text-secondary, #6b7280);
+    font-weight: 600;
 }
 
-.action-card p {
-    font-size: 0.9375rem;
+.activity-card h3 {
+    margin: 0.15rem 0 0;
+    font-size: 1.25rem;
+}
+
+.activity-metric span {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: var(--color-text-primary, #111827);
+    display: block;
+}
+
+.activity-metric {
+    font-size: 0.95rem;
+    color: var(--color-text-secondary, #6b7280);
+}
+
+.activity-empty-state {
     color: var(--color-text-secondary, #6b7280);
     margin: 0;
-    flex: 1;
-    line-height: 1.6;
+    font-size: 0.95rem;
 }
 
-.action-arrow {
+.book-cover-preview {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    border-radius: var(--radius-lg, 0.75rem);
+    background-color: var(--color-bg-secondary, #f9fafb);
+    border: 1px dashed var(--color-border-medium, #e5e7eb);
+}
+
+.book-cover-preview img {
+    width: 56px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: var(--radius-md, 0.5rem);
+    box-shadow: var(--shadow-sm);
+}
+
+.book-cover-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0;
+    color: var(--color-text-tertiary, #9ca3af);
+}
+
+.book-cover-title {
+    margin: 0.15rem 0 0;
+    font-weight: 600;
+    color: var(--color-text-primary, #111827);
+}
+
+.activity-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-full, 999px);
+    background: var(--color-bg-secondary, #f9fafb);
+    color: var(--color-text-secondary, #6b7280);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.goal-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.goal-progress-bar {
+    width: 100%;
+    height: 10px;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-tertiary, #f3f4f6);
+    overflow: hidden;
+}
+
+.goal-progress-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #34d399, #10b981);
+    transition: width 0.3s ease;
+}
+
+.goal-progress-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    color: var(--color-text-secondary, #6b7280);
+}
+
+.goal-progress-value {
     font-size: 1.25rem;
-    color: var(--color-primary, #6366f1);
     font-weight: 700;
-    transition: transform 0.3s ease;
-    align-self: flex-end;
+    color: var(--color-primary, #6366f1);
 }
 
-.action-card:hover .action-arrow {
-    transform: translateX(5px);
+.ratings-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    color: var(--color-text-secondary, #6b7280);
 }
+
+.ratings-stat span {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--color-warning, #f59e0b);
+}
+
+.activity-detail {
+    margin: 0;
+    color: var(--color-text-secondary, #6b7280);
+}
+
+.activity-comments-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.activity-comments-list li {
+    padding-bottom: 0.75rem;
+    border-bottom: 1px dashed var(--color-border-light, #f3f4f6);
+}
+
+.activity-comments-list li:last-child {
+    border-bottom: none;
+}
+
+.comment-book {
+    margin: 0;
+    font-weight: 600;
+    color: var(--color-text-primary, #111827);
+}
+
+.comment-text {
+    margin: 0.2rem 0;
+    color: var(--color-text-secondary, #6b7280);
+    line-height: 1.5;
+}
+
+.comment-date {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-text-tertiary, #9ca3af);
+}
+
+.activity-loading .spinner-border {
+    width: 2.5rem;
+    height: 2.5rem;
+}
+
 
 /* ============================================
    RESPONSIVE DESIGN
@@ -369,7 +515,7 @@
         gap: 1rem;
     }
 
-    .quick-actions-grid {
+    .activity-grid {
         grid-template-columns: 1fr;
         gap: 1rem;
     }

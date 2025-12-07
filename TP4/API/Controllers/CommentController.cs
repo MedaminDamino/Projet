@@ -1,8 +1,11 @@
 ﻿using API.Helpers;
 using API.Interfaces;
 using API.Models;
+using API.DTO;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Linq;
+using System.Security.Claims;
 
 namespace API.Controllers
 {
@@ -22,7 +25,50 @@ namespace API.Controllers
         public async Task<IActionResult> GetAll()
         {
             var comments = await _repo.GetAllAsync();
-            return Ok(comments);
+            return Ok(new ServerMessage<IEnumerable<Comment>>
+            {
+                Message = "All comments retrieved successfully.",
+                Data = comments
+            });
+        }
+
+        [HttpGet("user")]
+        [Authorize]
+        public async Task<IActionResult> GetByUser()
+        {
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { message = "User not authenticated" });
+            }
+
+            var comments = await _repo.GetByUserAsync(userId);
+            
+            // If no comments, return empty list (200 OK), not error
+            if (comments == null || !comments.Any())
+            {
+                return Ok(new ServerMessage<IEnumerable<CommentReadDto>>
+                {
+                    Message = "No comments found for this user.",
+                    Data = new List<CommentReadDto>()
+                });
+            }
+
+            var dtoList = comments.Select(c => new CommentReadDto
+            {
+                CommentID = c.CommentID,
+                ReviewID = c.ReviewID,
+                BookId = c.Review?.BookId ?? 0,
+                BookTitle = c.Review?.Book?.Title ?? "Unknown book",
+                CommentText = c.CommentText,
+                CreatedAt = c.CreatedAt
+            }).ToList();
+
+            return Ok(new ServerMessage<IEnumerable<CommentReadDto>>
+            {
+                Message = "User comments retrieved successfully.",
+                Data = dtoList
+            });
         }
 
         // GET api/comment/5
@@ -72,6 +118,13 @@ namespace API.Controllers
             if (!deleted) return NotFound();
 
             return NoContent();
+        }
+
+        private string? GetCurrentUserId()
+        {
+            return User?.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User?.FindFirstValue("sub")
+                ?? User?.FindFirstValue(ClaimTypes.Name);
         }
     }
 }

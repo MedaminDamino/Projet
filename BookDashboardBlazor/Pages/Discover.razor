@@ -39,49 +39,13 @@
            CssClass="shadow" />
 </div>
 
-@* Create Reading Goal Modal *@
-@if (showCreateGoalModalForBookId.HasValue)
-{
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.6);" @onclick="CloseGoalModal">
-        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
-            <div class="modal-content shadow-lg border-0">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="bi bi-bullseye me-2"></i>Create Reading Goal</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CloseGoalModal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Year</label>
-                        <input type="number" class="form-control" @bind="goalModalYear" min="@(DateTime.UtcNow.Year + 1)" />
-                        <small class="form-text text-muted">Goal year must be in the future</small>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Goal Percentage</label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" @bind="goalModalPercentage" min="1" max="100" />
-                            <span class="input-group-text">%</span>
-                        </div>
-                        <small class="form-text text-muted">Percentage of the book you want to read</small>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Current Progress</label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" @bind="goalModalProgress" min="0" max="100" />
-                            <span class="input-group-text">%</span>
-                        </div>
-                        <small class="form-text text-muted">How much have you read so far</small>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseGoalModal">Cancel</button>
-                    <button type="button" class="btn btn-primary" @onclick="CreateGoal">
-                        <i class="bi bi-check-circle me-1"></i> Create Goal
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+@* Create Reading Goal Modal Component *@
+<GoalModal IsVisible="@(showCreateGoalModalForBookId.HasValue)"
+           IsVisibleChanged="@(val => { if(!val) CloseGoalModal(); })"
+           BookId="@showCreateGoalModalForBookId"
+           BookTitle="@(showCreateGoalModalForBookId.HasValue ? books.FirstOrDefault(b => b.BookId == showCreateGoalModalForBookId)?.Title : "")"
+           IsBookLocked="true"
+           OnGoalCreated="HandleGoalCreated" />
 
 @* View/Edit Reading Goal Modal *@
 @if (showEditGoalModalForBookId.HasValue)
@@ -855,57 +819,15 @@
         StateHasChanged();
     }
 
-    private async Task CreateGoal()
+    private async Task HandleGoalCreated()
     {
-        if (!showCreateGoalModalForBookId.HasValue)
-            return;
-
-        var bookId = showCreateGoalModalForBookId.Value;
+        ShowGoalToast("Reading goal created successfully!", ToastType.Success);
         
-        // Client-side validation
-        var currentYear = DateTime.UtcNow.Year;
-        if (goalModalYear <= currentYear)
-        {
-            ShowGoalToast("Goal year must be in the future.", ToastType.Error);
-            return;
-        }
-
-        if (goalModalPercentage < 1 || goalModalPercentage > 100)
-        {
-            ShowGoalToast("Goal percentage must be between 1% and 100%.", ToastType.Error);
-            return;
-        }
-
-        if (goalModalProgress < 0 || goalModalProgress > 100)
-        {
-            ShowGoalToast("Progress must be between 0% and 100%.", ToastType.Error);
-            return;
-        }
-
-        if (goalModalProgress > goalModalPercentage)
-        {
-            ShowGoalToast("Progress cannot exceed the goal percentage.", ToastType.Error);
-            return;
-        }
-
-        Console.WriteLine($"[Discover] Creating goal for book {bookId}: Year={goalModalYear}, Goal%={goalModalPercentage}, Progress={goalModalProgress}");
-        var result = await ReadingGoalService.CreateQuickGoalAsync(bookId, goalModalYear, goalModalPercentage, goalModalProgress);
-
-        if (result != null && result.Code != "ERROR" && result.Code != "UNAUTHORIZED" && result.Code != "EXCEPTION")
-        {
-            // Reload goals from backend
-            await LoadUserGoals();
-            CloseGoalModal();
-            ShowGoalToast(result.Message, ToastType.Success);
-        }
-        else if (result?.Code == "UNAUTHORIZED")
-        {
-            ShowGoalToast("Login to create goals.", ToastType.Error);
-        }
-        else
-        {
-            ShowGoalToast(result?.Message ?? "Failed to save goal. Please try again.", ToastType.Error);
-        }
+        // Refresh goals to update UI
+        await LoadUserGoals();
+        
+        // Close modal
+        CloseGoalModal();
     }
 
     private async Task UpdateGoal()

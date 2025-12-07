@@ -97,41 +97,87 @@
 
     private async Task LoadData()
     {
-        try
-        {
-            errorMessage = null;
-            var commentResponse = await Http.GetAsync("api/Comment");
-            var reviewResponse = await Http.GetAsync("api/Review");
-
-            if (commentResponse.IsSuccessStatusCode)
+            try
             {
-                comments = await commentResponse.Content.ReadFromJsonAsync<List<Comment>>() ?? new List<Comment>();
+                errorMessage = null;
+                var commentResponse = await Http.GetAsync("api/Comment");
+                var reviewResponse = await Http.GetAsync("api/Review");
+
+                if (commentResponse.IsSuccessStatusCode)
+                {
+                    try 
+                    {
+                        var rawComments = await commentResponse.Content.ReadAsStringAsync();
+                        // Try deserializing as ServerMessage first
+                        try 
+                        {
+                            var wrapper = System.Text.Json.JsonSerializer.Deserialize<ServerMessage<List<Comment>>>(rawComments, jsonOptions);
+                            comments = wrapper?.Data ?? new List<Comment>();
+                        }
+                        catch 
+                        {
+                            // Fallback to direct list (though we expect wrapper now)
+                            comments = System.Text.Json.JsonSerializer.Deserialize<List<Comment>>(rawComments, jsonOptions) ?? new List<Comment>();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error deserializing comments: {ex.Message}");
+                        comments = new List<Comment>();
+                    }
+                }
+                else
+                {
+                    comments = new List<Comment>();
+                    errorMessage = $"Error loading comments: {commentResponse.StatusCode}";
+                    Console.WriteLine($"Error loading comments: {commentResponse.StatusCode}");
+                }
+
+                if (reviewResponse.IsSuccessStatusCode)
+                {
+                    try
+                    {
+                        var rawReviews = await reviewResponse.Content.ReadAsStringAsync();
+                        // Try deserializing as ServerMessage or ApiResponse first, just in case
+                        try
+                        {
+                            var wrapper = System.Text.Json.JsonSerializer.Deserialize<ServerMessage<List<Review>>>(rawReviews, jsonOptions);
+                            if (wrapper?.Data != null) 
+                            { 
+                                reviews = wrapper.Data;
+                            }
+                            else 
+                            {
+                                var apiWrapper = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<List<Review>>>(rawReviews, jsonOptions);
+                                reviews = apiWrapper?.Data ?? System.Text.Json.JsonSerializer.Deserialize<List<Review>>(rawReviews, jsonOptions) ?? new List<Review>();
+                            }
+                        }
+                        catch
+                        {
+                            // Fallback to direct list
+                             reviews = System.Text.Json.JsonSerializer.Deserialize<List<Review>>(rawReviews, jsonOptions) ?? new List<Review>();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                         Console.WriteLine($"Error deserializing reviews: {ex.Message}");
+                         reviews = new List<Review>();
+                    }
+                }
+                else
+                {
+                    reviews = new List<Review>();
+                    // Don't show error message for reviews failing, as it's secondary
+                    Console.WriteLine($"Error loading reviews: {reviewResponse.StatusCode}");
+                }
             }
-            else
+            catch (Exception ex)
             {
                 comments = new List<Comment>();
-                errorMessage = $"Error loading comments: {commentResponse.StatusCode}";
-                Console.WriteLine($"Error loading comments: {commentResponse.StatusCode}");
-            }
-
-            if (reviewResponse.IsSuccessStatusCode)
-            {
-                reviews = await reviewResponse.Content.ReadFromJsonAsync<List<Review>>() ?? new List<Review>();
-            }
-            else
-            {
                 reviews = new List<Review>();
-                errorMessage = $"Error loading reviews: {reviewResponse.StatusCode}";
-                Console.WriteLine($"Error loading reviews: {reviewResponse.StatusCode}");
+                errorMessage = $"Exception loading data: {ex.Message}";
+                Console.WriteLine($"Exception loading data: {ex.Message}");
             }
-        }
-        catch (Exception ex)
-        {
-            comments = new List<Comment>();
-            reviews = new List<Review>();
-            errorMessage = $"Exception loading data: {ex.Message}";
-            Console.WriteLine($"Exception loading data: {ex.Message}");
-        }
     }
 
     private void OpenCreateModal()

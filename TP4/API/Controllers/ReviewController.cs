@@ -56,6 +56,34 @@ namespace API.Controllers
             return Ok(review);
         }
 
+        [HttpGet("user")]
+        [Authorize]
+        public async Task<IActionResult> GetByUser()
+        {
+            var userId = GetUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { message = "You must be logged in to view your reviews." });
+            }
+
+            var reviews = await _repo.GetByUserAsync(userId);
+            var dtoList = reviews.Select(r => new ReviewReadDto
+            {
+                ReviewID = r.ReviewId,
+                AppUserID = r.ApplicationUserId,
+                BookId = r.BookId,
+                Rating = r.Rating,
+                ReviewText = r.ReviewText,
+                CreatedAt = r.CreatedAt
+            }).ToList();
+
+            return Ok(new
+            {
+                message = "User reviews retrieved successfully.",
+                data = dtoList
+            });
+        }
+
         [HttpPost]
         [Authorize(Roles = "SuperAdmin,Admin,User")]
         public async Task<IActionResult> Create([FromBody] ReviewCreateDto dto)

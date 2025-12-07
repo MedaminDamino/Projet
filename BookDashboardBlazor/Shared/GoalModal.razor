@@ -1,0 +1,268 @@
+@using BookDashboardBlazor.Services
+@using BookDashboardBlazor.Models
+@inject ReadingGoalService ReadingGoalService
+@inject HttpClient Http
+
+@if (IsVisible)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.6);" @onclick="CloseModal">
+        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
+            <div class="modal-content shadow-lg border-0">
+                <div class="modal-header @(IsEditing ? "bg-info" : "bg-primary") text-white">
+                    <h5 class="modal-title"><i class="bi bi-bullseye me-2"></i>@(IsEditing ? "Update Reading Goal" : "Create Reading Goal")</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    @if (!IsBookLocked)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Select Book</label>
+                            @if (isLoadingBooks)
+                            {
+                                <div class="text-muted small">Loading books...</div>
+                            }
+                            else
+                            {
+                                <select class="form-select" @bind="selectedBookId">
+                                    <option value="">-- Choose a book --</option>
+                                    @foreach (var book in availableBooks)
+                                    {
+                                        <option value="@book.BookId">@book.Title</option>
+                                    }
+                                </select>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Book</label>
+                            <input type="text" class="form-control" value="@BookTitle" disabled readonly />
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Year</label>
+                        <input type="number" class="form-control" @bind="goalYear" min="@(DateTime.UtcNow.Year)" />
+                        <small class="form-text text-muted">Goal year (must be current or future)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Goal Percentage</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" @bind="goalPercentage" min="1" max="100" />
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <small class="form-text text-muted">Percentage of the book you want to read</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Current Progress</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" @bind="goalProgress" min="0" max="100" />
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <small class="form-text text-muted">How much have you read so far</small>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger py-2">@errorMessage</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SubmitGoal" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-check-circle me-1"></i>
+                        }
+                        @(IsEditing ? "Update Goal" : "Create Goal")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback<bool> IsVisibleChanged { get; set; }
+    [Parameter] public int? BookId { get; set; }
+    [Parameter] public string? BookTitle { get; set; }
+    [Parameter] public bool IsBookLocked { get; set; }
+    
+    // Edit Mode Parameters
+    [Parameter] public int? GoalId { get; set; }
+    [Parameter] public int? InitialYear { get; set; }
+    [Parameter] public int? InitialPercentage { get; set; }
+    [Parameter] public int? InitialProgress { get; set; }
+    
+    [Parameter] public EventCallback OnGoalCreated { get; set; }
+
+    private bool IsEditing => GoalId.HasValue;
+
+    private int goalYear = DateTime.UtcNow.Year;
+    private int goalPercentage = 100;
+    private int goalProgress = 0;
+    private int selectedBookId;
+    private bool isSubmitting = false;
+    private string? errorMessage;
+    
+    // For unlocked mode
+    private List<Book> availableBooks = new();
+    private bool isLoadingBooks = false;
+
+    // Track if initialized to prevent resetting on every render
+    private bool _initialized; 
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsVisible)
+        {
+            if (!_initialized)
+            {
+                // Reset state when modal opens
+                errorMessage = null;
+                isSubmitting = false;
+                
+                if (IsEditing)
+                {
+                    goalYear = InitialYear ?? DateTime.UtcNow.Year;
+                    goalPercentage = InitialPercentage ?? 100;
+                    goalProgress = InitialProgress ?? 0;
+                }
+                else
+                {
+                    // Defaults for create mode
+                    goalYear = DateTime.UtcNow.Year;
+                    goalPercentage = 100;
+                    goalProgress = 0;
+                }
+                
+                // Ensure valid year
+                if (goalYear < DateTime.UtcNow.Year) goalYear = DateTime.UtcNow.Year;
+
+                if (IsBookLocked && BookId.HasValue)
+                {
+                    selectedBookId = BookId.Value;
+                }
+                else if (!IsBookLocked)
+                {
+                    // If we have a BookId passed even in unlocked mode (e.g. editing an existing goal), set it
+                    if (BookId.HasValue) 
+                    {
+                        selectedBookId = BookId.Value;
+                    }
+                    else if(selectedBookId == 0) // Only retain selection if valid, otherwise reset
+                    {
+                        selectedBookId = 0;
+                    }
+
+                    if (!availableBooks.Any())
+                    {
+                        await LoadBooksAsync();
+                    }
+                }
+                
+                _initialized = true;
+            }
+        }
+        else
+        {
+            _initialized = false;
+        }
+    }
+
+    private async Task LoadBooksAsync()
+    {
+        try
+        {
+            isLoadingBooks = true;
+            // Fetch simple list of books
+            availableBooks = await Http.GetFromJsonAsync<List<Book>>("api/Books") ?? new List<Book>();
+            // Sort by title
+            availableBooks = availableBooks.OrderBy(b => b.Title).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading books for goal modal: {ex.Message}");
+            errorMessage = "Failed to load book list.";
+        }
+        finally
+        {
+            isLoadingBooks = false;
+        }
+    }
+
+    private async Task CloseModal()
+    {
+        IsVisible = false;
+        await IsVisibleChanged.InvokeAsync(false);
+    }
+
+    private async Task SubmitGoal()
+    {
+        // Validation
+        if (selectedBookId <= 0 && (!IsBookLocked || !BookId.HasValue))
+        {
+            if (!IsBookLocked) selectedBookId = selectedBookId; 
+            
+            if (selectedBookId == 0)
+            {
+                 errorMessage = "Please select a book.";
+                 return;
+            }
+        }
+        
+        // If locked, ensure we use the passed BookId
+        if (IsBookLocked && BookId.HasValue)
+        {
+            selectedBookId = BookId.Value;
+        }
+
+        if (goalYear < DateTime.UtcNow.Year)
+        {
+            errorMessage = "Year cannot be in the past.";
+            return;
+        }
+
+        try
+        {
+            isSubmitting = true;
+            errorMessage = null;
+
+            ServerMessage<ReadingGoalViewModel>? result;
+
+            if (IsEditing)
+            {
+                result = await ReadingGoalService.UpdateGoalAsync(GoalId!.Value, goalYear, goalPercentage, goalProgress);
+            }
+            else
+            {
+                result = await ReadingGoalService.CreateQuickGoalAsync(selectedBookId, goalYear, goalPercentage, goalProgress);
+            }
+
+            if (result != null && result.Code != "ERROR" && result.Code != "EXCEPTION" && result.Code != "UNAUTHORIZED")
+            {
+                // Success
+                await CloseModal();
+                await OnGoalCreated.InvokeAsync();
+            }
+            else
+            {
+                errorMessage = result?.Message ?? (IsEditing ? "Failed to update goal." : "Failed to create goal.");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}
