@@ -3,15 +3,15 @@ namespace API.DTO
     public class ReadingGoalCreateDto
     {
         public int Year { get; set; }
-
         public int GoalPercentage { get; set; }
-
         public int Progress { get; set; }
-
         public int BookId { get; set; }
     }
 
-    public class ReadingGoalUpdateDto : ReadingGoalCreateDto
+    public class ReadingGoalUpdateDto
     {
+        public int Year { get; set; }
+        public int GoalPercentage { get; set; }
+        public int Progress { get; set; }
     }
 }

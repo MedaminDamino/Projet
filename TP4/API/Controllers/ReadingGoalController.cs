@@ -23,10 +23,161 @@ namespace API.Controllers
             _bookRepo = bookRepo;
         }
 
-        private string? GetUserId() =>
-            User?.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? User?.FindFirstValue("sub")
-            ?? User?.FindFirstValue(ClaimTypes.Name);
+        private string? GetCurrentUserId()
+        {
+            return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
+
+        // ============================================================================
+        // ENDPOINTS FOR DISCOVER PAGE (Quick Goal Creation)
+        // ============================================================================
+
+        /// <summary>
+        /// Create a reading goal from the Discover page for a specific book
+        /// </summary>
+        [HttpPost("from-book")]
+        [Authorize]
+        public async Task<IActionResult> CreateQuickGoal(ReadingGoalCreateDto goalDto)
+        {
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { message = "User not authenticated" });
+            }
+
+            try
+            {
+                if (goalDto.BookId <= 0)
+                {
+                    return BadRequest(new { message = "Please select a book for this goal." });
+                }
+
+                var validationError = ValidateGoalInputs(goalDto.Year, goalDto.GoalPercentage, goalDto.Progress);
+                if (validationError != null)
+                {
+                    return BadRequest(new { message = validationError });
+                }
+
+                var book = await _bookRepo.GetByIdAsync(goalDto.BookId);
+                if (book == null)
+                {
+                    return BadRequest(new { message = "Book not found." });
+                }
+
+                // Check if user already has a goal for this book in this year
+                if (await _repo.ExistsForUserYearBookAsync(userId, goalDto.Year, goalDto.BookId))
+                {
+                    return Conflict(new { message = "You already have a goal for this book in this year." });
+                }
+
+                var goal = new ReadingGoal
+                {
+                    Year = goalDto.Year,
+                    GoalPercentage = goalDto.GoalPercentage,
+                    Progress = goalDto.Progress,
+                    BookId = goalDto.BookId,
+                    CreatedAt = DateTime.UtcNow,
+                    ApplicationUserId = userId,
+                    Book = book
+                };
+
+                await _repo.AddAsync(goal);
+                Console.WriteLine($"[ReadingGoalController] Created goal for user {userId}, book {goalDto.BookId}, year {goalDto.Year}");
+
+                return Ok(new
+                {
+                    message = $"Goal created for '{book.Title}'.",
+                    data = BuildGoalResponse(goal)
+                });
+            }
+            catch (DbUpdateException dbEx)
+            {
+                return HandleDatabaseError(dbEx, "creating the goal");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ReadingGoalController] Error creating quick goal: {ex.Message}");
+                return StatusCode(500, new { message = "An unexpected error occurred while creating the goal." });
+            }
+        }
+
+        /// <summary>
+        /// Get all reading goals for the current authenticated user
+        /// </summary>
+        [HttpGet("user")]
+        [Authorize]
+        public async Task<IActionResult> GetUserGoals()
+        {
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { message = "User not authenticated" });
+            }
+
+            try
+            {
+                var goals = await _repo.GetAllAsync();
+                var userGoals = goals.Where(g => g.ApplicationUserId == userId).ToList();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "User goals retrieved successfully",
+                    data = userGoals.Select(BuildGoalResponse)
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ReadingGoalController] Error loading user goals: {ex.Message}");
+                return StatusCode(500, new { message = "An error occurred while loading your goals." });
+            }
+        }
+
+        /// <summary>
+        /// Get the user's reading goal for a specific book
+        /// </summary>
+        [HttpGet("user/{bookId}")]
+        [Authorize]
+        public async Task<IActionResult> GetGoalForBook(int bookId)
+        {
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { message = "User not authenticated" });
+            }
+
+            try
+            {
+                var goals = await _repo.GetAllAsync();
+                var goal = goals.FirstOrDefault(g => g.ApplicationUserId == userId && g.BookId == bookId);
+
+                if (goal == null)
+                {
+                    return Ok(new
+                    {
+                        success = true,
+                        message = "No goal found for this book",
+                        data = (object?)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Goal retrieved successfully",
+                    data = BuildGoalResponse(goal)
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ReadingGoalController] Error loading goal for book {bookId}: {ex.Message}");
+                return StatusCode(500, new { message = "An error occurred while loading the goal." });
+            }
+        }
+
+        // ============================================================================
+        // LEGACY ENDPOINTS (Admin/Management)
+        // ============================================================================
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
@@ -43,7 +194,8 @@ namespace API.Controllers
             }
             catch (Exception ex)
             {
-                return HandleUnexpectedError(ex, "loading goals");
+                Console.WriteLine($"[ReadingGoalController] Error loading all goals: {ex.Message}");
+                return StatusCode(500, new { message = "An error occurred while loading goals." });
             }
         }
 
@@ -66,7 +218,8 @@ namespace API.Controllers
             }
             catch (Exception ex)
             {
-                return HandleUnexpectedError(ex, "loading the requested goal");
+                Console.WriteLine($"[ReadingGoalController] Error loading goal {id}: {ex.Message}");
+                return StatusCode(500, new { message = "An error occurred while loading the goal." });
             }
         }
 
@@ -76,7 +229,7 @@ namespace API.Controllers
         {
             try
             {
-                var userId = GetUserId();
+                var userId = GetCurrentUserId();
 
                 if (goalDto.BookId <= 0)
                 {
@@ -124,7 +277,8 @@ namespace API.Controllers
             }
             catch (Exception ex)
             {
-                return HandleUnexpectedError(ex, "creating the goal");
+                Console.WriteLine($"[ReadingGoalController] Error creating goal: {ex.Message}");
+                return StatusCode(500, new { message = "An unexpected error occurred while creating the goal." });
             }
         }
 
@@ -134,17 +288,12 @@ namespace API.Controllers
         {
             try
             {
-                var userId = GetUserId();
+                var userId = GetCurrentUserId();
 
                 var existing = await _repo.GetByIdAsync(id);
                 if (existing == null)
                 {
                     return NotFound(new { message = "Goal not found." });
-                }
-
-                if (updated.BookId <= 0)
-                {
-                    return BadRequest(new { message = "Please select a book for this goal." });
                 }
 
                 var validationError = ValidateGoalInputs(updated.Year, updated.GoalPercentage, updated.Progress);
@@ -153,13 +302,8 @@ namespace API.Controllers
                     return BadRequest(new { message = validationError });
                 }
 
-                var book = await _bookRepo.GetByIdAsync(updated.BookId);
-                if (book == null)
-                {
-                    return BadRequest(new { message = "Book not found." });
-                }
-
-                if (await _repo.ExistsForUserYearBookAsync(userId, updated.Year, updated.BookId, excludeId: id))
+                // Note: BookId doesn't change in update, so we keep the existing book
+                if (await _repo.ExistsForUserYearBookAsync(userId, updated.Year, existing.BookId, excludeId: id))
                 {
                     return Conflict(new { message = "You already have a goal for this book in this year." });
                 }
@@ -167,9 +311,7 @@ namespace API.Controllers
                 existing.Year = updated.Year;
                 existing.GoalPercentage = updated.GoalPercentage;
                 existing.Progress = updated.Progress;
-                existing.BookId = updated.BookId;
                 existing.ApplicationUserId = userId;
-                existing.Book = book;
 
                 await _repo.UpdateAsync(existing);
 
@@ -185,7 +327,8 @@ namespace API.Controllers
             }
             catch (Exception ex)
             {
-                return HandleUnexpectedError(ex, "updating the goal");
+                Console.WriteLine($"[ReadingGoalController] Error updating goal: {ex.Message}");
+                return StatusCode(500, new { message = "An unexpected error occurred while updating the goal." });
             }
         }
 
@@ -195,8 +338,6 @@ namespace API.Controllers
         {
             try
             {
-                // Note: Admin role is excluded - only SuperAdmin and User (for their own goals) can delete
-
                 var goal = await _repo.GetByIdAsync(id);
                 if (goal == null)
                 {
@@ -217,7 +358,8 @@ namespace API.Controllers
             }
             catch (Exception ex)
             {
-                return HandleUnexpectedError(ex, "deleting the goal");
+                Console.WriteLine($"[ReadingGoalController] Error deleting goal: {ex.Message}");
+                return StatusCode(500, new { message = "An unexpected error occurred while deleting the goal." });
             }
         }
 
@@ -234,9 +376,9 @@ namespace API.Controllers
                 return "Goal percentage must be between 1% and 100%.";
             }
 
-            if (progress < 1 || progress > 100)
+            if (progress < 0 || progress > 100)
             {
-                return "Progress must be between 1% and 100%.";
+                return "Progress must be between 0% and 100%.";
             }
 
              if (progress > goalPercentage)
@@ -257,15 +399,6 @@ namespace API.Controllers
             return StatusCode(500, new
             {
                 message = $"We ran into a database issue while {action}. Please try again."
-            });
-        }
-
-        private IActionResult HandleUnexpectedError(Exception ex, string action)
-        {
-            _ = ex;
-            return StatusCode(500, new
-            {
-                message = $"An unexpected error occurred while {action}. Please try again later."
             });
         }
 

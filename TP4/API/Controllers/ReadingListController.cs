@@ -4,6 +4,7 @@ using API.Interfaces;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace API.Controllers
 {
@@ -25,6 +26,7 @@ namespace API.Controllers
             public string Message { get; set; }
             public string ErrorCode { get; set; }
         }
+
         private readonly IReadingListRepo _repo;
         private static readonly string[] AllowedStatuses =
         {
@@ -74,7 +76,148 @@ namespace API.Controllers
                 item.ReadingListID != excludeReadingListId);
         }
 
+        private string? GetCurrentUserId()
+        {
+            return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
+
+        // ============================================================================
+        // NEW ENDPOINTS FOR DISCOVER PAGE
+        // ============================================================================
+
+        /// <summary>
+        /// Get current authenticated user's reading list (for Discover page)
+        /// </summary>
+        [HttpGet("user")]
+        [Authorize]
+        public async Task<IActionResult> GetUserReadingList()
+        {
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new ApiResponse
+                {
+                    Success = false,
+                    Message = "User not authenticated",
+                    ErrorCode = "UNAUTHORIZED"
+                });
+            }
+
+            var items = await _repo.GetAllAsync();
+            var userItems = items.Where(item => item.ApplicationUserId == userId).ToList();
+
+            return Ok(new ApiResponse<IEnumerable<ReadingListReadDto>>
+            {
+                Success = true,
+                Message = "Reading list retrieved successfully",
+                Data = userItems.Select(MapToReadDto)
+            });
+        }
+
+        /// <summary>
+        /// Add book to current user's reading list (for Discover page)
+        /// </summary>
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> AddToReadingList(ReadingListCreateDto createDto)
+        {
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new ApiResponse
+                {
+                    Success = false,
+                    Message = "User not authenticated",
+                    ErrorCode = "UNAUTHORIZED"
+                });
+            }
+
+            // Check if user already has this book
+            if (await UserHasBookAsync(userId, createDto.BookId))
+            {
+                return BadRequest(new ApiResponse
+                {
+                    Success = false,
+                    Message = "This book is already in your reading list.",
+                    ErrorCode = "BOOK_ALREADY_EXISTS"
+                });
+            }
+
+            var list = new ReadingList
+            {
+                ApplicationUserId = userId,
+                BookId = createDto.BookId,
+                Status = "NotStarted",
+                AddedAt = DateTime.UtcNow
+            };
+
+            await _repo.AddAsync(list);
+            return Ok(new ApiResponse<ReadingListReadDto>
+            {
+                Success = true,
+                Message = "Book added to your reading list successfully",
+                Data = MapToReadDto(list)
+            });
+        }
+
+        /// <summary>
+        /// Remove book from current user's reading list by bookId (for Discover page)
+        /// </summary>
+        [HttpDelete("{bookId}")]
+        [Authorize]
+        public async Task<IActionResult> RemoveFromReadingList(int bookId)
+        {
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new ApiResponse
+                {
+                    Success = false,
+                    Message = "User not authenticated",
+                    ErrorCode = "UNAUTHORIZED"
+                });
+            }
+
+            var items = await _repo.GetAllAsync();
+            var userItem = items.FirstOrDefault(item =>
+                item.ApplicationUserId == userId &&
+                item.BookId == bookId);
+
+            if (userItem == null)
+            {
+                return NotFound(new ApiResponse
+                {
+                    Success = false,
+                    Message = "This book is not in your reading list.",
+                    ErrorCode = "BOOK_NOT_FOUND"
+                });
+            }
+
+            var deleted = await _repo.DeleteAsync(userItem.ReadingListID);
+            if (!deleted)
+            {
+                return StatusCode(500, new ApiResponse
+                {
+                    Success = false,
+                    Message = "Failed to remove book from reading list.",
+                    ErrorCode = "DELETE_FAILED"
+                });
+            }
+
+            return Ok(new ApiResponse
+            {
+                Success = true,
+                Message = "Book removed from your reading list successfully",
+                ErrorCode = null
+            });
+        }
+
+        // ============================================================================
+        // LEGACY ENDPOINTS (for ReadingListPage.razor admin functionality)
+        // ============================================================================
+
         [HttpGet]
+        [Authorize(Roles = "SuperAdmin,Admin")]
         public async Task<IActionResult> GetAll()
         {
             var items = await _repo.GetAllAsync();
@@ -86,7 +229,8 @@ namespace API.Controllers
             });
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("id/{id}")]
+        [Authorize(Roles = "SuperAdmin,Admin")]
         public async Task<IActionResult> GetById(int id)
         {
             var item = await _repo.GetByIdAsync(id);
@@ -102,44 +246,6 @@ namespace API.Controllers
                 Success = true,
                 Message = "Reading list entry retrieved successfully",
                 Data = MapToReadDto(item)
-            });
-        }
-
-        [HttpPost]
-        [Authorize(Roles = "SuperAdmin,Admin,User")]
-        public async Task<IActionResult> Create(ReadingListCreateDto createDto)
-        {
-            if (!IsValidStatus(createDto.Status))
-                return BadRequest(new ApiResponse
-                {
-                    Success = false,
-                    Message = "Invalid status value. Please use one of the following: NotStarted, Reading, or Completed.",
-                    ErrorCode = "INVALID_STATUS"
-                });
-
-            // Check if user already has this book (exclude null since this is a new entry)
-            if (await UserHasBookAsync(createDto.ApplicationUserId, createDto.BookId, excludeReadingListId: -1))
-                return BadRequest(new ApiResponse
-                {
-                    Success = false,
-                    Message = "This book is already in your reading list. You can update the existing entry to change its status instead.",
-                    ErrorCode = "BOOK_ALREADY_EXISTS"
-                });
-
-            var list = new ReadingList
-            {
-                ApplicationUserId = createDto.ApplicationUserId,
-                BookId = createDto.BookId,
-                Status = createDto.Status,
-                AddedAt = DateTime.UtcNow
-            };
-
-            await _repo.AddAsync(list);
-            return CreatedAtAction(nameof(GetById), new { id = list.ReadingListID }, new ApiResponse<ReadingListReadDto>
-            {
-                Success = true,
-                Message = "Book added to your reading list successfully",
-                Data = MapToReadDto(list)
             });
         }
 
@@ -187,12 +293,10 @@ namespace API.Controllers
             });
         }
 
-        [HttpDelete("{id}")]
-        [Authorize(Roles = "SuperAdmin,User")]
-        public async Task<IActionResult> Delete(int id)
+        [HttpDelete("id/{id}")]
+        [Authorize(Roles = "SuperAdmin,Admin")]
+        public async Task<IActionResult> DeleteById(int id)
         {
-            // Note: Admin role is excluded - only SuperAdmin and User (for their own items) can delete
-
             var deleted = await _repo.DeleteAsync(id);
             if (!deleted)
                 return NotFound(new ApiResponse

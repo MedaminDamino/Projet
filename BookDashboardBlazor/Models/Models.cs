@@ -224,6 +224,9 @@ public class ServerMessage<T>
     [JsonPropertyName("message")]
     public string Message { get; set; } = string.Empty;
 
+    [JsonPropertyName("code")]
+    public string? Code { get; set; }
+
     [JsonPropertyName("data")]
     public T? Data { get; set; }
 
