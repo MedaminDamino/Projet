@@ -1,7 +1,9 @@
 @page "/readinglist"
 @using BookDashboardBlazor.Models
+@using BookDashboardBlazor.Services
 @inject HttpClient Http
 @inject IJSRuntime JSRuntime
+@inject ReadingListService ReadingListService
 @attribute [Authorize]
 
 <h3>Reading List</h3>
@@ -135,66 +137,23 @@
         try
         {
             ClearError();
-            Console.WriteLine("Attempting to load reading list from api/ReadingList...");
+            Console.WriteLine("Loading current user's reading list...");
 
-            var response = await Http.GetAsync("api/ReadingList");
-            var jsonContent = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"Raw API Response: {jsonContent.Substring(0, Math.Min(200, jsonContent.Length))}...");
+            // Use ReadingListService to get current user's reading list with authentication
+            readingList = await ReadingListService.GetCurrentUserReadingListAsync();
 
-            if (!response.IsSuccessStatusCode)
+            Console.WriteLine($"Successfully loaded {readingList.Count} reading list items for current user");
+            foreach (var item in readingList)
             {
-                errorMessage = $"API Error: {response.StatusCode}";
-                Console.WriteLine($"API returned error: {response.StatusCode}");
-                readingList = new List<ReadingList>();
-                return;
+                Console.WriteLine($"ReadingList ID: {item.ReadingListID}, BookId: {item.BookId}, Book: {item.Book?.Title ?? "null"}");
             }
 
-            try
-            {
-                var apiResponse = System.Text.Json.JsonSerializer.Deserialize<ApiResponse<List<ReadingList>>>(jsonContent, jsonOptions);
-
-                if (apiResponse == null || !apiResponse.Success || apiResponse.Data == null)
-                {
-                    errorMessage = apiResponse?.Message ?? "Failed to load reading list";
-                    errorCode = apiResponse?.ErrorCode;
-                    Console.WriteLine($"API returned unsuccessful response: {apiResponse?.Message}");
-                    readingList = new List<ReadingList>();
-                    return;
-                }
-
-                readingList = apiResponse.Data;
-
-                Console.WriteLine($"Successfully loaded {readingList.Count} reading list items");
-                foreach (var item in readingList)
-                {
-                    Console.WriteLine($"ReadingList ID: {item.ReadingListID}, BookId: {item.BookId}, Book is null: {item.Book == null}");
-                    if (item.Book != null)
-                    {
-                        Console.WriteLine($"  Book Title: '{item.Book.Title}', BookId: {item.Book.BookId}");
-                    }
-                }
-
-                StateHasChanged();
-            }
-            catch (System.Text.Json.JsonException jsonEx)
-            {
-                Console.WriteLine($"JSON Deserialization Error: {jsonEx.Message}");
-                Console.WriteLine($"JSON Path: {jsonEx.Path}");
-                errorMessage = $"Error parsing data: {jsonEx.Message}";
-                readingList = new List<ReadingList>();
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            errorMessage = $"HTTP Error loading reading list: {ex.Message}";
-            Console.WriteLine($"HTTP Exception loading reading list: {ex}");
-            readingList = new List<ReadingList>();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error loading reading list: {ex.Message}";
+            errorMessage = $"Error loading your reading list: {ex.Message}";
             Console.WriteLine($"Exception loading reading list: {ex}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
             readingList = new List<ReadingList>();
         }
     }
@@ -327,7 +286,9 @@
             ClearModalError();
 
             Console.WriteLine($"Attempting to delete reading list item ID: {itemToDelete.ReadingListID}");
-            var response = await Http.DeleteAsync($"api/ReadingList/{itemToDelete.ReadingListID}");
+            
+            // FIXED: Use the correct admin endpoint with /id/ prefix
+            var response = await Http.DeleteAsync($"api/ReadingList/id/{itemToDelete.ReadingListID}");
             var jsonContent = await response.Content.ReadAsStringAsync();
 
             Console.WriteLine($"Delete Response: {jsonContent.Substring(0, Math.Min(200, jsonContent.Length))}...");
@@ -350,8 +311,23 @@
             }
             else
             {
-                ShowModalError(apiResponse?.GetUserMessage($"Failed to delete item: {response.StatusCode}"),
-                    apiResponse?.ErrorCode);
+                // Improved error message handling based on error codes
+                string errorMsg = apiResponse?.Message ?? $"Failed to delete item: {response.StatusCode}";
+                
+                if (apiResponse?.ErrorCode == "READING_LIST_NOT_FOUND")
+                {
+                    errorMsg = "This item no longer exists.";
+                }
+                else if (apiResponse?.ErrorCode == "FORBIDDEN")
+                {
+                    errorMsg = "You don't have permission to delete this item.";
+                }
+                else if (apiResponse?.ErrorCode == "UNAUTHORIZED")
+                {
+                    errorMsg = "Please log in to delete items.";
+                }
+                
+                ShowModalError(errorMsg, apiResponse?.ErrorCode);
                 Console.WriteLine($"Error deleting reading list: {modalErrorMessage} (Code: {modalErrorCode})");
             }
         }

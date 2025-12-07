@@ -294,21 +294,58 @@ namespace API.Controllers
         }
 
         [HttpDelete("id/{id}")]
-        [Authorize(Roles = "SuperAdmin,Admin")]
+        [Authorize]  // Allow all authenticated users, check role/ownership inside
         public async Task<IActionResult> DeleteById(int id)
         {
-            var deleted = await _repo.DeleteAsync(id);
-            if (!deleted)
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new ApiResponse
+                {
+                    Success = false,
+                    Message = "User not authenticated",
+                    ErrorCode = "UNAUTHORIZED"
+                });
+            }
+
+            var item = await _repo.GetByIdAsync(id);
+            if (item == null)
+            {
                 return NotFound(new ApiResponse
                 {
                     Success = false,
-                    Message = "The reading list entry you are trying to delete was not found.",
+                    Message = "The reading list entry was not found.",
                     ErrorCode = "READING_LIST_NOT_FOUND"
                 });
+            }
+
+            // SuperAdmin can delete any item, others can only delete their own
+            var isSuperAdmin = User.IsInRole("SuperAdmin");
+            if (!isSuperAdmin && item.ApplicationUserId != userId)
+            {
+                return StatusCode(403, new ApiResponse
+                {
+                    Success = false,
+                    Message = "You don't have permission to delete this reading list entry.",
+                    ErrorCode = "FORBIDDEN"
+                });
+            }
+
+            var deleted = await _repo.DeleteAsync(id);
+            if (!deleted)
+            {
+                return StatusCode(500, new ApiResponse
+                {
+                    Success = false,
+                    Message = "Failed to delete the reading list entry.",
+                    ErrorCode = "DELETE_FAILED"
+                });
+            }
+
             return Ok(new ApiResponse
             {
                 Success = true,
-                Message = "Reading list entry has been removed successfully",
+                Message = "Reading list entry deleted successfully",
                 ErrorCode = null
             });
         }
